@@ -1,0 +1,11 @@
+*~
+__pycache__
+du.log
+
+build/
+dist/
+doc/sphinx/build/
+doc/sphinx/source/api/
+
+__TRASH__/
+no-git/
