@@ -20,14 +20,11 @@
 
 ####################################################################################################
 
-from operator import attrgetter
 from pathlib import Path
-from typing import AnyStr, Iterator, Union, Type
+from typing import Union, Type
 import hashlib
 import os
 import subprocess
-
-from FileSystemTool.path.walker import WalkerAbc
 
 ####################################################################################################
 
@@ -41,6 +38,7 @@ class File:
         '_stat',
         '_allocated_size',
         '_sha',
+        'user_data',
     ]
 
     SHA_METHOD = hashlib.sha1
@@ -56,12 +54,21 @@ class File:
         self._stat = None
         self._allocated_size = None
         self._sha = None
+        self.user_data = None
 
     ##############################################
 
     @property
     def absolut_path_bytes(self) -> bytes:
         return os.path.join(self._dirpath, self._path)
+
+    @property
+    def absolut_path_str(self) -> str:
+        return self.absolut_path_bytes.decode('utf-8')
+
+    @property
+    def absolut_path(self) -> Path:
+        return Path(self.absolut_path_str)
 
     ##############################################
 
@@ -183,11 +190,21 @@ class File:
 
     ##############################################
 
-    def compare_with(self, other: Type['File']):
-        # Fixme: Posix only
-        # command = ('/usr/bin/cmp', '--silent', self.absolut_path_bytes, other.absolut_path_bytes)
-        # return subprocess.run(command).returncode == 0
+    def compare_with(self, other: Type['File'], posix: bool = False) -> bool:
+        if posix:
+            return self._compare_with_posix(other)
+        else:
+            return self._compare_with_py(other)
 
+    ##############################################
+
+    def _compare_with_posix(self, other: Type['File']) -> bool:
+        command = ('/usr/bin/cmp', '--silent', self.absolut_path_bytes, other.absolut_path_bytes)
+        return subprocess.run(command).returncode == 0
+
+    ##############################################
+
+    def _compare_with_py(self, other: Type['File']) -> bool:
         size = self.size
         if size != other.size:
             return False
@@ -219,119 +236,3 @@ class File:
             and self.sha == other.sha
             and self.compare_with(other)
         )
-
-####################################################################################################
-
-class Walker(WalkerAbc):
-
-    ##############################################
-
-    @classmethod
-    def walk(cls, path: Union[AnyStr, Path]) -> Type['Walker']:
-        walker = Walker(path)
-        walker.run(topdown=True, sort=True, followlinks=False)
-        return walker
-
-    ##############################################
-
-    def __init__(self, path: Union[AnyStr, Path]) -> None:
-        super().__init__(path)
-        self._files = []
-        self._size_map = None
-
-    ##############################################
-
-    def on_filename(self, dirpath: bytes, path: bytes) -> None:
-        file_obj = File(dirpath, path)
-        if self.register_file(file_obj):
-            self._files.append(file_obj)
-
-    ##############################################
-
-    def register_file(self, file_obj: File) -> bool:
-        return (
-            not file_obj.is_symlink
-            and not file_obj.is_empty
-        )
-
-    ##############################################
-
-    def __len__(self) -> int:
-        return len(self._files)
-
-    def __iter__(self) -> Iterator[File]:
-        return iter(self._files)
-
-    ##############################################
-
-    def sort_file_by_size(self) -> None:
-        self._files.sort(key=attrgetter('size'))
-
-    ##############################################
-
-    def sort_file_by_inode(self) -> None:
-        self._files.sort(key=lambda file_obj: (file_obj.device << 64) + file_obj.inode)
-
-    ##############################################
-
-    def make_size_map(self) -> None:
-        size_map = {}
-        for file_obj in self:
-            size_map.setdefault(file_obj.size, [])
-            size_map[file_obj.size].append(file_obj)
-        self._size_map = size_map
-        self._files = None
-
-    ##############################################
-
-    def remove_uniq_size(self) -> int:
-        size_map = self._size_map
-        to_remove = []
-        for size, file_objs in size_map.items():
-            if len(file_objs) == 1:
-                to_remove.append(size)
-        for size in to_remove:
-            del size_map[size]
-        return len(to_remove)
-
-    ##############################################
-
-    def _remove_different_feature(self, method) -> int:
-        remove_count = 0
-        size_to_remove = []
-        for size, file_objs in self._size_map.items():
-            to_remove = []
-            feature = method(file_objs[0])
-            for i, file_obj in enumerate(file_objs[1:]):
-                if method(file_obj) != feature:
-                    to_remove.append(i)
-            if len(to_remove) == len(file_objs) -1:
-                size_to_remove.append(size)
-                remove_count += len(file_objs)
-            elif to_remove:
-                remove_count += len(to_remove)
-                for i in to_remove:
-                    del file_objs[i]
-        size_map = self._size_map
-        for size in size_to_remove:
-            del size_map[size]
-        return remove_count
-
-    ##############################################
-
-    def remove_different_first_byte(self) -> int:
-        self._remove_different_feature(File.first_bytes)
-
-    def remove_different_last_byte(self) -> int:
-        self._remove_different_feature(File.last_bytes)
-
-    def remove_different_sha(self) -> int:
-        self._remove_different_feature(lambda file_obj: file_obj.sha)
-
-    ##############################################
-
-    def join(self) -> None:
-        files = []
-        for file_objs in self._size_map.values():
-            files.extend(file_objs)
-        self._files = files
