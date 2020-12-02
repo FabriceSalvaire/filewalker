@@ -43,14 +43,37 @@ class File:
 
     SHA_METHOD = hashlib.sha1
 
-    SOME_BYTES = 64
+    SOME_BYTES_SIZE = 64    # rdfind uses 64
     PARTIAL_SHA_BYTES = 10 * 1024
+
+    ##############################################
+
+    @staticmethod
+    def to_bytes(_):
+        return str(_).encode('utf-8')
+
+    ##############################################
+
+    @classmethod
+    def from_str(cls, path: str) -> Type["File"]:
+        return cls.from_path(Path(path))
+
+    ##############################################
+
+    @classmethod
+    def from_path(cls, path: Path) -> Type["File"]:
+        return cls(cls.to_bytes(path.parent), cls.to_bytes(path.name))
 
     ##############################################
 
     def __init__(self, dirpath: bytes, path: bytes) -> None:
         self._dirpath = dirpath
         self._path = path
+        self.vacuum()
+
+    ##############################################
+
+    def vacuum(self) -> None:
         self._stat = None
         self._allocated_size = None
         self._sha = None
@@ -178,14 +201,14 @@ class File:
 
     def first_bytes(self, size: Union[int, None] = None) -> str:
         if size is None:
-            size = self.SOME_BYTES
+            size = self.SOME_BYTES_SIZE
         return self._read_content(size)
 
     ##############################################
 
     def last_bytes(self, size: Union[int, None] = None) -> str:
         if size is None:
-            size = self.SOME_BYTES
+            size = self.SOME_BYTES_SIZE
         return self._read_content(-size)
 
     ##############################################

@@ -32,9 +32,15 @@ class WalkerAbc:
     # def __init__(self, path : Union[AnyStr, PathLike[AnyStr]]) -> None:
     def __init__(self, path: Union[AnyStr, Path]) -> None:
         # Make the path absolute, resolving any symlinks.
-        self._path = Path(path).resolve()
+        self._path = Path(path).expanduser().resolve()
         if not self._path.exists():
             raise ValueError(f"Path {self._path} doesn't exists")
+
+    ##############################################
+
+    @property
+    def path(self) -> Path:
+        return self._path
 
     ##############################################
 
