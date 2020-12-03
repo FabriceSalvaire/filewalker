@@ -22,7 +22,7 @@
 
 from operator import attrgetter
 from pathlib import Path
-from typing import AnyStr, Iterator, List, Union, Type
+from typing import AnyStr, Iterator, List, Set, Type, Union
 import json
 
 from FileSystemTool.path.file import File
@@ -41,12 +41,12 @@ class Duplicate:
     ##############################################
 
     @property
-    def path(self) -> File:
-        return self._file.absolut_path_bytes
+    def path_bytes(self) -> File:
+        return self._file.path_bytes
 
     @property
     def path_str(self) -> File:
-        return self._file.absolut_path_str
+        return self._file.path_str
 
     @property
     def file(self) -> File:
@@ -86,8 +86,8 @@ class DuplicateSet:
     ##############################################
 
     @property
-    def paths(self) -> List[bytes]:
-        return [_.path for _ in self]
+    def paths_bytes(self) -> List[bytes]:
+        return [_.path_bytes for _ in self]
 
     @property
     def paths_str(self) -> List[bytes]:
@@ -96,14 +96,14 @@ class DuplicateSet:
     ##############################################
 
     def sort(self) -> None:
-        self._files.sort(key=lambda duplicate: duplicate.path)
+        self._files.sort(key=lambda duplicate: duplicate.path_byte)
 
     ##############################################
 
     def to_be_cleaned(self) -> List[File]:
         duplicate = [_ for _ in self if _]
         if len(duplicate) == len(self):
-            raise NameError(f"All files are marked in duplicate set {self.paths}")
+            raise NameError(f"All files are marked in duplicate set {self.paths_byte}")
         return duplicate
 
 ####################################################################################################
@@ -162,13 +162,13 @@ class DuplicatePool:
     def sort(self) -> None:
         for _ in self:
             _.sort()
-        self._pool.sort(key=lambda duplicate_set: duplicate_set.first.path)
+        self._pool.sort(key=lambda duplicate_set: duplicate_set.first.path_byte)
 
     ##############################################
 
     def to_json(self) -> str:
         data = [_.paths_str for _ in self]
-        return json.dumps(data)
+        return json.dumps(data, indent=4)
 
     ##############################################
 
@@ -184,9 +184,24 @@ class DuplicatePool:
         if len(self) != len(other):
             return False
         for a, b in zip(self, other):
-            if a.paths != b.paths:
+            if a.paths_byte != b.paths_byte:
                 return False
         return True
+
+    ##############################################
+
+    def to_set(self) -> Set[bytes]:
+        path_set = set()
+        for _ in self:
+            path_set |= set(_.paths_byte)
+        return path_set
+
+    ##############################################
+
+    def compare(self, ref: Type['DuplicatePool']):
+        my_set = self.to_set()
+        ref_set = ref.to_set()
+        return ref_set - my_set # , my_set - ref_set
 
 ####################################################################################################
 
@@ -206,31 +221,38 @@ class DuplicateCleaner(WalkerAbc):
 
         walker.make_size_map()
 
+        # p = ""
+        # print("Check: ", walker.has_path(p))
+
         old_file_count = walker.count()
         print(f"Now have {old_file_count} files in total.")
         # Total size is xxx bytes or xxx GiB
-
-        walker.remove_unique_size()
-        file_count = walker.count()
-        print(f"Removed {old_file_count - file_count} files due to unique sizes from list. {file_count} files left.")
-        old_file_count = file_count
 
         def report(old_file_count):
             file_count = walker.count()
             print(f"removed {old_file_count - file_count} files from list. {file_count} files left.")
             return file_count
 
+        walker.remove_unique_size()
+        file_count = walker.count()
+        print(f"Removed {old_file_count - file_count} files due to unique sizes from list. {file_count} files left.")
+        old_file_count = file_count
+        print("Check: ", walker.has_path(p))
+
         print("Now eliminating candidates based on first bytes:")
         walker.remove_different_first_byte(fast_io)
         old_file_count = report(old_file_count)
+        print("Check: ", walker.has_path(p))
 
         print("Now eliminating candidates based on last bytes:")
         walker.remove_different_last_byte(fast_io)
         old_file_count = report(old_file_count)
+        print("Check: ", walker.has_path(p))
 
         print("Now eliminating candidates based on sha1 checksum:")
         walker.remove_different_sha(fast_io)
         old_file_count = report(old_file_count)
+        print("Check: ", walker.has_path(p))
 
         print(f"It seems like you have {old_file_count} files that are not unique")
         # Totally, 822 MiB can be reduced.
@@ -355,7 +377,6 @@ class DuplicateCleaner(WalkerAbc):
         size_to_remove = []
         size_map = self._map
         for size, file_objs in size_map.items():
-            to_remove = []
             feature = method(file_objs[0])
             for i, file_obj in enumerate(file_objs[1:]):
                 if method(file_obj) != feature:
@@ -365,10 +386,7 @@ class DuplicateCleaner(WalkerAbc):
                 remove_count += len(file_objs)
             elif to_remove:
                 remove_count += len(to_remove)
-                # wrong !
                 # Fixme: mark obj ? use set ?
-                # for i in to_remove:
-                #     del file_objs[i]
                 size_map[size] = [_ for _ in file_objs if id(_) not in to_remove]
         for size in size_to_remove:
             del size_map[size]
@@ -393,3 +411,11 @@ class DuplicateCleaner(WalkerAbc):
 
     def remove_different_sha(self, fast_io: bool = False) -> int:
         return self.remove_different_feature(lambda file_obj: file_obj.sha, fast_io)
+
+    ##############################################
+
+    def has_path(self, path: str) -> bool:
+        for file_objs in self._map.values():
+            if path in [_.path_str for _ in file_objs]:
+                return True
+        return False

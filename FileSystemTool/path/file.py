@@ -82,27 +82,27 @@ class File:
     ##############################################
 
     @property
-    def absolut_path_bytes(self) -> bytes:
+    def path_bytes(self) -> bytes:
         return os.path.join(self._dirpath, self._path)
 
     @property
-    def absolut_path_str(self) -> str:
-        return self.absolut_path_bytes.decode('utf-8')
+    def path_str(self) -> str:
+        return self.path_bytes.decode('utf-8')
 
     @property
-    def absolut_path(self) -> Path:
-        return Path(self.absolut_path_str)
+    def path(self) -> Path:
+        return Path(self.path_str)
 
     ##############################################
 
     def __str__(self) -> str:
-        return f"{self.absolut_path_bytes}"
+        return f"{self.path_bytes}"
 
     ##############################################
 
     @property
     def is_symlink(self) -> bool:
-        return os.path.islink(self.absolut_path_bytes)
+        return os.path.islink(self.path_bytes)
 
     ##############################################
 
@@ -111,7 +111,7 @@ class File:
         # if not hasattr(self, '_stat'):
         if self._stat is None:
             # does not follow symbolic links
-            self._stat = os.lstat(self.absolut_path_bytes)
+            self._stat = os.lstat(self.path_bytes)
         return self._stat
 
     ##############################################
@@ -165,7 +165,7 @@ class File:
         # unlikely to happen
         # if self.is_empty:
         #     return b''
-        with open(self.absolut_path_bytes, 'rb') as fh:
+        with open(self.path_bytes, 'rb') as fh:
             if size is not None and size < 0:
                 if abs(size) < self.size:
                     fh.seek(size, os.SEEK_END)
@@ -222,7 +222,7 @@ class File:
     ##############################################
 
     def _compare_with_posix(self, other: Type['File']) -> bool:
-        command = ('/usr/bin/cmp', '--silent', self.absolut_path_bytes, other.absolut_path_bytes)
+        command = ('/usr/bin/cmp', '--silent', self.path_bytes, other.path_bytes)
         return subprocess.run(command).returncode == 0
 
     ##############################################
@@ -234,8 +234,8 @@ class File:
 
         # Fixme: check < CHUNK_SIZE, > CHUNK_SIZE, = CHUNK_SIZE +1, ...
         CHUNK_SIZE = 1024
-        with open(self.absolut_path_bytes, 'rb') as fh1:
-            with open(other.absolut_path_bytes, 'rb') as fh2:
+        with open(self.path_bytes, 'rb') as fh1:
+            with open(other.path_bytes, 'rb') as fh2:
                 offset = 0
                 while offset < size:
                     offset += CHUNK_SIZE
