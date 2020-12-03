@@ -96,14 +96,14 @@ class DuplicateSet:
     ##############################################
 
     def sort(self) -> None:
-        self._files.sort(key=lambda duplicate: duplicate.path_byte)
+        self._files.sort(key=lambda duplicate: duplicate.path_bytes)
 
     ##############################################
 
     def to_be_cleaned(self) -> List[File]:
         duplicate = [_ for _ in self if _]
         if len(duplicate) == len(self):
-            raise NameError(f"All files are marked in duplicate set {self.paths_byte}")
+            raise NameError(f"All files are marked in duplicate set {self.paths_bytes}")
         return duplicate
 
 ####################################################################################################
@@ -162,7 +162,7 @@ class DuplicatePool:
     def sort(self) -> None:
         for _ in self:
             _.sort()
-        self._pool.sort(key=lambda duplicate_set: duplicate_set.first.path_byte)
+        self._pool.sort(key=lambda duplicate_set: duplicate_set.first.path_bytes)
 
     ##############################################
 
@@ -184,7 +184,7 @@ class DuplicatePool:
         if len(self) != len(other):
             return False
         for a, b in zip(self, other):
-            if a.paths_byte != b.paths_byte:
+            if a.paths_bytes != b.paths_bytes:
                 return False
         return True
 
@@ -193,7 +193,7 @@ class DuplicatePool:
     def to_set(self) -> Set[bytes]:
         path_set = set()
         for _ in self:
-            path_set |= set(_.paths_byte)
+            path_set |= set(_.paths_bytes)
         return path_set
 
     ##############################################
@@ -273,7 +273,7 @@ class DuplicateCleaner(WalkerAbc):
     def __init__(self, path: Union[AnyStr, Path]) -> None:
         super().__init__(path)
         self._files = []
-        self._map = None
+        self._pool = None
 
     ##############################################
 
@@ -299,7 +299,7 @@ class DuplicateCleaner(WalkerAbc):
     #     return iter(self._files)
 
     def duplicate_iter(self) -> Iterator[DuplicateSet]:
-        return iter([DuplicateSet(_) for _ in self._map.values()])
+        return iter([DuplicateSet(_) for _ in self._pool])
 
     ##############################################
 
@@ -318,14 +318,14 @@ class DuplicateCleaner(WalkerAbc):
         for file_obj in self._files:
             size_map.setdefault(file_obj.size, [])
             size_map[file_obj.size].append(file_obj)
-        self._map = size_map
+        self._pool = size_map.values()
         self._files = None
 
     ##############################################
 
     def join(self) -> None:
         files = []
-        for file_objs in self._map.values():
+        for file_objs in self._pool:
             files.extend(file_objs)
         self._files = files
 
@@ -333,21 +333,22 @@ class DuplicateCleaner(WalkerAbc):
 
     def count(self) -> int:
         count = 0
-        for file_objs in self._map.values():
+        for file_objs in self._pool:
             count += len(file_objs)
         return count
 
     ##############################################
 
     def remove_unique_size(self) -> int:
-        size_map = self._map
-        to_remove = []
-        for size, file_objs in size_map.items():
-            if len(file_objs) == 1:
-                to_remove.append(size)
-        for size in to_remove:
-            del size_map[size]
-        return len(to_remove)
+        new_pool = []
+        remove_count = 0
+        for file_objs in self._pool:
+            if len(file_objs) > 1:
+                new_pool.append(file_objs)
+            else:
+                remove_count += 1
+        self._pool = new_pool
+        return remove_count
 
     ##############################################
 
@@ -373,23 +374,26 @@ class DuplicateCleaner(WalkerAbc):
     ##############################################
 
     def _remove_different_feature_impl(self, method) -> int:
+        new_pool = []
         remove_count = 0
-        size_to_remove = []
-        size_map = self._map
-        for size, file_objs in size_map.items():
-            feature = method(file_objs[0])
-            for i, file_obj in enumerate(file_objs[1:]):
-                if method(file_obj) != feature:
-                    to_remove.append(id(file_obj))
-            if len(to_remove) == len(file_objs) -1:
-                size_to_remove.append(size)
-                remove_count += len(file_objs)
-            elif to_remove:
-                remove_count += len(to_remove)
-                # Fixme: mark obj ? use set ?
-                size_map[size] = [_ for _ in file_objs if id(_) not in to_remove]
-        for size in size_to_remove:
-            del size_map[size]
+        for file_objs in self._pool:
+            # We split the file set to uniq feature sets and remove singletons
+            features = [method(_) for _ in file_objs]
+            unique_features = tuple(set(features))
+            # Fixme: perf ! feature is hashed x4
+            #   some bytes test => 64-bytes
+            #   use a feature hash to speedup ???
+            counts = {_: features.count(_) for _ in unique_features}
+            pool = {_: [] for _ in unique_features}
+            for file_obj, feature in zip(file_objs, features):
+                if counts[feature] > 1:
+                    pool[feature].append(file_obj)
+                else:
+                    remove_count += 1
+            for _ in pool.values():
+                if _:
+                    new_pool.append(_)
+        self._pool = new_pool
         return remove_count
 
     ##############################################
@@ -415,7 +419,7 @@ class DuplicateCleaner(WalkerAbc):
     ##############################################
 
     def has_path(self, path: str) -> bool:
-        for file_objs in self._map.values():
+        for file_objs in self._pool:
             if path in [_.path_str for _ in file_objs]:
                 return True
         return False
