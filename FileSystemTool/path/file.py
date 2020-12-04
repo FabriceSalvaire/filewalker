@@ -33,8 +33,8 @@ class File:
     ST_NBLOCKSIZE = 512
 
     __slots__ = [
-        '_dirpath',
-        '_path',
+        '_parent',
+        '_name',
         '_stat',
         '_allocated_size',
         '_sha',
@@ -66,9 +66,9 @@ class File:
 
     ##############################################
 
-    def __init__(self, dirpath: bytes, path: bytes) -> None:
-        self._dirpath = dirpath
-        self._path = path
+    def __init__(self, parent: bytes, name: bytes) -> None:
+        self._parent = parent
+        self._name = name
         self.vacuum()
 
     ##############################################
@@ -83,7 +83,7 @@ class File:
 
     @property
     def path_bytes(self) -> bytes:
-        return os.path.join(self._dirpath, self._path)
+        return os.path.join(self._parent, self._name)
 
     @property
     def path_str(self) -> str:
@@ -91,6 +91,7 @@ class File:
 
     @property
     def path(self) -> Path:
+        # Fixme: cache ?
         return Path(self.path_str)
 
     ##############################################

@@ -24,33 +24,25 @@ from operator import attrgetter
 from pathlib import Path
 from typing import AnyStr, Iterator, List, Set, Type, Union
 import json
+import logging
 
 from FileSystemTool.path.file import File
 from FileSystemTool.path.walker import WalkerAbc
 
 ####################################################################################################
 
-class Duplicate:
+_module_logger = logging.getLogger(__name__)
+
+####################################################################################################
+
+class MarkMixin:
 
     ##############################################
 
-    def __init__(self, file_obj: File) -> None:
-        self._file = file_obj
+    def __init__(self) -> None:
         self._marked = False
 
     ##############################################
-
-    @property
-    def path_bytes(self) -> File:
-        return self._file.path_bytes
-
-    @property
-    def path_str(self) -> File:
-        return self._file.path_str
-
-    @property
-    def file(self) -> File:
-        return self._file
 
     @property
     def marked(self) -> bool:
@@ -60,28 +52,124 @@ class Duplicate:
         return self._marked
 
     def mark(self) -> None:
+        self._logger.debug(f"Mark {self}")
         self._marked = True
 
 ####################################################################################################
 
-class DuplicateSet:
+class Duplicate(MarkMixin):
+
+    _logger = _module_logger.getChild("Duplicate")
+
+    ##############################################
+
+    def __init__(self, file_obj: File) -> None:
+        super().__init__()
+        self._file = file_obj
+        self._path = self._file.path   # Fixme: ???
+
+    ##############################################
+
+    def __str__(self):
+        # return str(self.path_bytes)
+        return str(self.path_str)
+
+    def __repr__(self):
+        return str(self)
+
+    ##############################################
+
+    @property
+    def path_bytes(self) -> bytes:
+        return self._file.path_bytes
+
+    @property
+    def path_str(self) -> str:
+        return self._file.path_str
+
+    @property
+    def path(self) -> Path:
+        return self._path
+
+    @property
+    def file(self) -> File:
+        return self._file
+
+    @property
+    def exists(self) -> bool:
+        return self._path.exists()
+
+    ##############################################
+
+    def compare_with(self, other: Type["Duplicate"], posix: bool = False) -> bool:
+        return self.file.compare_with(other.file, posix)
+
+    ##############################################
+
+    def delete(self, dry_run: bool = False) -> None:
+        self._logger.info(f"Delete file {self.path}")
+        # if not dry_run:
+        #     self.path.unlink()
+
+    ##############################################
+
+    def link_to(self, to: Type["Duplicate"], dry_run: bool = False) -> None:
+        self._logger.info(f"link file {self.path} to {to.path}")
+        # if not dry_run:
+        #     self.path.unlink()
+        #     self.path.link_to(to.path)
+
+    ##############################################
+
+    def symlink_to(self, to: Type["Duplicate"],  dry_run: bool = False, ) -> None:
+        self._logger.info(f"link file {self.path} to {to.path}")
+        # if not dry_run:
+        #     self.path.unlink()
+        #     self.path.symlink_to(to.path)
+
+####################################################################################################
+
+class DuplicateSet(MarkMixin):
+
+    _logger = _module_logger.getChild("DuplicateSet")
 
     ##############################################
 
     def __init__(self, files: List[File]) -> None:
-        self._files = [Duplicate(_) for _ in files]
+        super().__init__()
+        self._duplicates = [Duplicate(_) for _ in files]
+
+    ##############################################
+
+    def __str__(self) -> str:
+        return str([str(_) for _ in self.paths])
 
     ##############################################
 
     def __len__(self) -> int:
-        return len(self._files)
-
-    def __iter__(self) -> Iterator[File]:
-        return iter(self._files)
+        return len(self._duplicates)
 
     @property
-    def first(self) -> File:
-        return self._files[0]
+    def is_singleton(self) -> bool:
+        return len(self._duplicates) == 1
+
+    def __iter__(self) -> Iterator[Duplicate]:
+        return iter(self._duplicates)
+
+    def __getitem__(self, _slice) -> Duplicate:
+        return self._duplicates[_slice]
+
+    @property
+    def first(self) -> Duplicate:
+        return self._duplicates[0]
+
+    @property
+    def second(self) -> Duplicate:
+        return self._duplicates[1]
+
+    @property
+    def followings(self) -> Iterator[Duplicate]:
+        return iter(self._duplicates[1:])
 
     ##############################################
 
@@ -90,25 +178,72 @@ class DuplicateSet:
         return [_.path_bytes for _ in self]
 
     @property
-    def paths_str(self) -> List[bytes]:
+    def paths_str(self) -> List[str]:
         return [_.path_str for _ in self]
 
+    @property
+    def paths(self) -> List[Path]:
+        return [_.path for _ in self]
+
     ##############################################
 
-    def sort(self) -> None:
-        self._files.sort(key=lambda duplicate: duplicate.path_bytes)
+    def sort(self, key=None) -> None:
+        if key is None:
+            key = lambda duplicate: duplicate.path_bytes
+        self._duplicates.sort(key=key)
 
     ##############################################
 
-    def to_be_cleaned(self) -> List[File]:
+    @property
+    def is_same_parent(self) -> bool:
+        parents = set([_.parent for _ in self.paths])
+        return len(parents) == 1
+
+    ##############################################
+
+    @property
+    def unmarked(self) -> List[File]:
+        return [_ for _ in self if not _]
+
+    @property
+    def marked_count(self) -> int:
+        return sum([1 for _ in self if _])
+
+    @property
+    def unmarked_count(self) -> int:
+        return sum([1 for _ in self if not _])
+
+    ##############################################
+
+    @property
+    def marked(self) -> List[File]:
         duplicate = [_ for _ in self if _]
         if len(duplicate) == len(self):
             raise NameError(f"All files are marked in duplicate set {self.paths_bytes}")
         return duplicate
 
+    ##############################################
+
+    def delete_marked(self, dry_run: bool = False) -> None:
+        for _ in self.marked:
+            _.delete(dry_run)
+
+    ##############################################
+
+    def remove(self, duplicate: Duplicate) -> None:
+        self._duplicates.remove(duplicate)
+
+    ##############################################
+
+    def remove_marked(self) -> None:
+        for _ in self.marked:
+            self.remove(_)
+
 ####################################################################################################
 
 class DuplicatePool:
+
+    _logger = _module_logger.getChild("DuplicatePool")
 
     ##############################################
 
@@ -166,15 +301,25 @@ class DuplicatePool:
 
     ##############################################
 
-    def to_json(self) -> str:
-        data = [_.paths_str for _ in self]
+    def remove_singleton(self) -> None:
+        for duplicate_set in self:
+            duplicate_set.remove_marked()
+        self._pool = [_ for _ in self if not _.is_singleton]
+
+    ##############################################
+
+    def to_json(self, exclude_singleton: bool = True) -> str:
+        if exclude_singleton:
+            data = [_.paths_str for _ in self if not _.is_singleton]
+        else:
+            data = [_.paths_str for _ in self]
         return json.dumps(data, indent=4)
 
     ##############################################
 
-    def write_json(self, path: Union[AnyStr, Path]) -> None:
+    def write_json(self, path: Union[AnyStr, Path], exclude_singleton: bool = True) -> None:
         with open(path, 'w', encoding="utf-8") as fh:
-            fh.write(self.to_json())
+            fh.write(self.to_json(exclude_singleton))
 
     ##############################################
 
@@ -206,6 +351,8 @@ class DuplicatePool:
 ####################################################################################################
 
 class DuplicateCleaner(WalkerAbc):
+
+    _logger = _module_logger.getChild("DuplicateCleaner")
 
     ##############################################
 
