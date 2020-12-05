@@ -15,5 +15,9 @@
 * a base module to scan a file system
 * an improved OO File API to get: stat, allocated size on disk, sha1 checksum; a method to check if two files are identical ...
 * a module to find duplicated files on disk, inspired by the C++ command line tool [rdfind](https://github.com/pauldreik/rdfind)
+
+  It implements a mark/commit duplicate API and security checks.
+
   It also implements a **rdfind** `results.txt` loader and can cross-check it.
+
   Dump and load a JSON result file.
