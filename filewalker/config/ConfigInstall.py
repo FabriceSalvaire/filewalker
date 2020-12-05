@@ -1,6 +1,6 @@
 ####################################################################################################
 #
-# FileSystemTool — ...
+# filewalker — ...
 # Copyright (C) 2020 Fabrice Salvaire
 #
 # This program is free software: you can redistribute it and/or modify
@@ -23,7 +23,7 @@
 import pathlib
 import sys
 
-import FileSystemTool.common.path as PathTools # due to Path class
+import filewalker.common.path as PathTools # due to Path class
 
 ####################################################################################################
 

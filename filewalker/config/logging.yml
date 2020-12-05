@@ -58,7 +58,7 @@ handlers:
 
 loggers:
 
-  FileSystemTool:
+  filewalker:
     # level: DEBUG
     level: INFO
     # level: WARNING

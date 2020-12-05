@@ -1,6 +1,6 @@
 ####################################################################################################
 #
-# FileSystemTool — ...
+# filewalker — ...
 # Copyright (C) 2020 Fabrice Salvaire
 #
 # This program is free software: you can redistribute it and/or modify
@@ -28,7 +28,7 @@ import os
 
 import yaml
 
-import FileSystemTool.config.ConfigInstall as ConfigInstall
+import filewalker.config.ConfigInstall as ConfigInstall
 default_config_file = ConfigInstall.Logging.default_config_file()
 
 ####################################################################################################
@@ -57,9 +57,9 @@ def setup_logging(config_file=default_config_file):
     fix_formater(logging_config)
     logging.config.dictConfig(logging_config)
 
-    root_logger = logging.getLogger('FileSystemTool')
+    root_logger = logging.getLogger('filewalker')
 
-    log_level_env = 'FileSystemToolLogLevel'
+    log_level_env = 'filewalkerLogLevel'
     if log_level_env in os.environ:
         numeric_level = getattr(logging, os.environ[log_level_env], None)
         root_logger.setLevel(numeric_level)

@@ -1,6 +1,6 @@
 ####################################################################################################
 #
-# FileSystemTool — ...
+# filewalker — ...
 # Copyright (C) 2020 Fabrice Salvaire
 #
 # This program is free software: you can redistribute it and/or modify
@@ -27,7 +27,7 @@ import os
 import shutil
 import sys
 
-import FileSystemTool.Config.ConfigInstall as ConfigInstall
+import filewalker.Config.ConfigInstall as ConfigInstall
 from . import DefaultConfig
 
 ####################################################################################################
@@ -53,13 +53,13 @@ class ConfigFile:
         template = '''
 ################################################################################
 #
-# FileSystemTool Configuration
+# filewalker Configuration
 #
 ################################################################################
 
 from pathlib import Path
 
-import FileSystemTool.Config.DefaultConfig as DefaultConfig
+import filewalker.Config.DefaultConfig as DefaultConfig
 
 ################################################################################
 

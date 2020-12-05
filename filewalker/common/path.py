@@ -1,6 +1,6 @@
 ####################################################################################################
 #
-# FileSystemTool — ...
+# filewalker — ...
 # Copyright (C) 2020 Fabrice Salvaire
 #
 # This program is free software: you can redistribute it and/or modify
@@ -18,13 +18,24 @@
 #
 ####################################################################################################
 
-__all__ = ["find_nth"]
+__all__ = ['find']
 
 ####################################################################################################
 
-def find_nth(text: str, pattern: str, n: int) -> int:
-    start = text.find(pattern)
-    while start >= 0 and n > 1:
-        start = text.find(pattern, start + len(pattern))
-        n -= 1
-    return start
+from pathlib import Path
+import os
+
+####################################################################################################
+
+def find(file_name, directories):
+
+    # Fixme: ???
+    if isinstance(directories, bytes):
+        directories = (directories,)
+
+    for directory in directories:
+        for directory_path, _, file_names in os.walk(directory):
+            if file_name in file_names:
+                return Path(directory_path).joinpath(file_name)
+
+    raise NameError("File %s not found in directories %s" % (file_name, str(directories)))

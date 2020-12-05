@@ -1,6 +1,6 @@
 ####################################################################################################
 #
-# FileSystemTool -
+# filewalker -
 # Copyright (C) 2020 Fabrice Salvaire
 #
 # This program is free software: you can redistribute it and/or modify
@@ -24,8 +24,8 @@ import unittest
 
 ####################################################################################################
 
-from FileSystemTool.path.file import File
-from FileSystemTool.cleaner.DuplicateCleaner import *
+from filewalker.path.file import File
+from filewalker.cleaner.DuplicateCleaner import *
 
 ####################################################################################################
 

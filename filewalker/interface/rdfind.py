@@ -1,6 +1,6 @@
 ####################################################################################################
 #
-# FileSystemTool — ...
+# filewalker — ...
 # Copyright (C) 2020 Fabrice Salvaire
 #
 # This program is free software: you can redistribute it and/or modify
@@ -36,9 +36,9 @@ rdfind results.txt format:
 from pathlib import Path
 from typing import AnyStr, List, Union
 
-from FileSystemTool.path.file import File
-from FileSystemTool.common.string import find_nth
-from FileSystemTool.cleaner.DuplicateCleaner import DuplicatePool
+from filewalker.path.file import File
+from filewalker.common.string import find_nth
+from filewalker.cleaner.DuplicateCleaner import DuplicatePool
 
 ####################################################################################################
 

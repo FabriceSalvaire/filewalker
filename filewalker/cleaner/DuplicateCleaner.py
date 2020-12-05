@@ -1,6 +1,6 @@
 ####################################################################################################
 #
-# FileSystemTool — ...
+# filewalker — ...
 # Copyright (C) 2020 Fabrice Salvaire
 #
 # This program is free software: you can redistribute it and/or modify
@@ -36,8 +36,8 @@ from typing import AnyStr, Iterator, List, Set, Type, Union
 import json
 import logging
 
-from FileSystemTool.path.file import File
-from FileSystemTool.path.walker import WalkerAbc
+from filewalker.path.file import File
+from filewalker.path.walker import WalkerAbc
 
 ####################################################################################################
 

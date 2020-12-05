@@ -13,7 +13,7 @@ include setup_data.py
 include tox.ini
 
 recursive-include .github *.md
-recursive-include FileSystemTool *.py *.yml
+recursive-include filewalker *.py *.yml
 recursive-include doc *
 recursive-include doc/sphinx/source/_static *
 recursive-include doc/sphinx/source/_templates *
