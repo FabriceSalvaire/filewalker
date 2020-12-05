@@ -1,0 +1,30 @@
+include .gitignore
+include .travis.yml
+include CHANGES.txt
+include GPL-V3.0.txt
+include LICENSE.txt
+include MANIFEST.in
+include README.html
+include README.rst
+include README.txt
+include requirements.txt requirements-dev.txt
+include setenv.sh
+include setup_data.py
+include tox.ini
+
+recursive-include .github *.md
+recursive-include FileSystemTool *.py *.yml
+recursive-include doc *
+recursive-include doc/sphinx/source/_static *
+recursive-include doc/sphinx/source/_templates *
+recursive-include gh-pages *
+recursive-include systemd *.txt *.service
+recursive-include tools *
+recursive-include unit-test *.py
+
+global-exclude *~
+global-exclude *__pycache__*
+
+prune build
+prune doc/sphinx/build
+prune doc/sphinx/source/api
