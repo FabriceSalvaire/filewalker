@@ -18,6 +18,16 @@
 #
 ####################################################################################################
 
+__all__= [
+    'AllFileMarked',
+    'Duplicate',
+    'DuplicateCleaner',
+    'DuplicatePool',
+    'DuplicateSet',
+    'InconsistentDuplicateSet',
+    'NonUniqFiles',
+]
+
 ####################################################################################################
 
 from operator import attrgetter
@@ -44,16 +54,19 @@ class MarkMixin:
 
     ##############################################
 
-    @property
-    def marked(self) -> bool:
+    def __bool__(self) -> bool:
         return self._marked
 
-    def __bool__(self) -> bool:
+    @property
+    def marked(self) -> bool:
         return self._marked
 
     def mark(self) -> None:
         self._logger.debug(f"Mark {self}")
         self._marked = True
+
+    def unmark(self) -> None:
+        self._marked = False
 
 ####################################################################################################
 
@@ -92,12 +105,12 @@ class Duplicate(MarkMixin):
         return self._path
 
     @property
-    def file(self) -> File:
-        return self._file
-
-    @property
     def exists(self) -> bool:
         return self._path.exists()
+
+    @property
+    def file(self) -> File:
+        return self._file
 
     ##############################################
 
@@ -129,6 +142,17 @@ class Duplicate(MarkMixin):
 
 ####################################################################################################
 
+class NonUniqFiles(ValueError):
+    pass
+
+class AllFileMarked(ValueError):
+    pass
+
+class InconsistentDuplicateSet(ValueError):
+    pass
+
+####################################################################################################
+
 class DuplicateSet(MarkMixin):
 
     _logger = _module_logger.getChild("DuplicateSet")
@@ -137,7 +161,13 @@ class DuplicateSet(MarkMixin):
 
     def __init__(self, files: List[File]) -> None:
         super().__init__()
-        self._duplicates = [Duplicate(_) for _ in files]
+        # Check there is any duplicate file in the list
+        paths = [_.path_bytes for _ in files]
+        self._input_paths = set(paths)
+        if len(self._input_paths) != len(files):
+            raise NonUniqFiles(f"Non-unique list of files: {paths}")
+        self._pendings = [Duplicate(_) for _ in files]
+        self._duplicates = []
 
     ##############################################
 
@@ -147,29 +177,57 @@ class DuplicateSet(MarkMixin):
     ##############################################
 
     def __len__(self) -> int:
-        return len(self._duplicates)
+        return len(self._pendings)
 
     @property
     def is_singleton(self) -> bool:
-        return len(self._duplicates) == 1
+        return len(self._pendings) == 1
+
+    @property
+    def number_of_duplicates(self) -> int:
+        return len(self._duplicates)
+
+    ##############################################
 
     def __iter__(self) -> Iterator[Duplicate]:
-        return iter(self._duplicates)
+        return iter(self._pendings)
 
     def __getitem__(self, _slice) -> Duplicate:
-        return self._duplicates[_slice]
+        return self._pendings[_slice]
 
     @property
     def first(self) -> Duplicate:
-        return self._duplicates[0]
+        return self._pendings[0]
 
     @property
     def second(self) -> Duplicate:
-        return self._duplicates[1]
+        return self._pendings[1]
 
     @property
     def followings(self) -> Iterator[Duplicate]:
-        return iter(self._duplicates[1:])
+        return iter(self._pendings[1:])
+
+    @property
+    def duplicates(self) -> Iterator[Duplicate]:
+        return iter(self._duplicates)
+
+    ##############################################
+
+    @property
+    def marked(self) -> List[File]:
+        return [_ for _ in self if _]
+
+    @property
+    def unmarked(self) -> List[File]:
+        return [_ for _ in self if not _]
+
+    @property
+    def number_of_marked(self) -> int:
+        return sum([1 for _ in self if _])
+
+    @property
+    def number_of_unmarked(self) -> int:
+        return sum([1 for _ in self if not _])
 
     ##############################################
 
@@ -185,59 +243,75 @@ class DuplicateSet(MarkMixin):
     def paths(self) -> List[Path]:
         return [_.path for _ in self]
 
+    @property
+    def duplicated_paths(self) -> List[Path]:
+        return [_.path for _ in self._duplicates]
+
     ##############################################
 
-    def sort(self, key=None) -> None:
+    def sort(self, key=None, reverse: bool = False) -> None:
         if key is None:
             key = lambda duplicate: duplicate.path_bytes
-        self._duplicates.sort(key=key)
+        self._pendings.sort(key=key, reverse=reverse)
 
     ##############################################
 
     @property
     def is_same_parent(self) -> bool:
-        parents = set([_.parent for _ in self.paths])
+        parents = set([str(_.parent) for _ in self.paths])
         return len(parents) == 1
 
-    ##############################################
-
     @property
-    def unmarked(self) -> List[File]:
-        return [_ for _ in self if not _]
-
-    @property
-    def marked_count(self) -> int:
-        return sum([1 for _ in self if _])
-
-    @property
-    def unmarked_count(self) -> int:
-        return sum([1 for _ in self if not _])
-
-    ##############################################
-
-    @property
-    def marked(self) -> List[File]:
-        duplicate = [_ for _ in self if _]
-        if len(duplicate) == len(self):
-            raise NameError(f"All files are marked in duplicate set {self.paths_bytes}")
-        return duplicate
+    def common_parent(self) -> bool:
+        parents = [_.parent.parts for _ in self.paths]
+        parts = []
+        i = 0
+        try:
+            while True:
+                part = parents[0][i]
+                for _ in parents[1:]:
+                    if part != _[i]:
+                        raise IndexError
+                parts.append(part)
+                i += 1
+        except IndexError:
+            pass
+        return Path(*parts)
 
     ##############################################
 
-    def delete_marked(self, dry_run: bool = False) -> None:
-        for _ in self.marked:
+    def commit(self) -> None:
+        if self.number_of_marked:
+            if not self.number_of_unmarked:
+                raise AllFileMarked(f"All files are marked in duplicate set {self.paths_bytes}")
+            self._duplicates.extend(self.marked)
+            for _ in self.marked:
+                self._pendings.remove(_)
+
+    ##############################################
+
+    def rollback(self, rollback_duplicates: bool = False) -> None:
+        if rollback_duplicates:
+            self._pendings += self._duplicates
+            self._duplicates = []
+        for _ in self._pendings:
+            _.unmark()
+
+    ##############################################
+
+    def check(self) -> None:
+        pendings = [_.path_bytes for _ in self._pendings]
+        duplicates = [_.path_bytes for _ in self._duplicates]
+        paths = set(pendings) | set(duplicates)
+        if paths != self._input_paths:
+            raise InconsistentDuplicateSet(f"Inconsistent duplicate set: {paths} != {self._input_paths}")
+
+    ##############################################
+
+    def delete_duplicates(self, dry_run: bool = False) -> None:
+        self.check()
+        for _ in self._duplicates:
             _.delete(dry_run)
-
-    ##############################################
-
-    def remove(self, duplicate: Duplicate) -> None:
-        self._duplicates.remove(duplicate)
-
-    ##############################################
-
-    def remove_marked(self) -> None:
-        for _ in self.marked:
-            self.remove(_)
 
 ####################################################################################################
 
@@ -302,8 +376,6 @@ class DuplicatePool:
     ##############################################
 
     def remove_singleton(self) -> None:
-        for duplicate_set in self:
-            duplicate_set.remove_marked()
         self._pool = [_ for _ in self if not _.is_singleton]
 
     ##############################################
@@ -473,7 +545,7 @@ class DuplicateCleaner(WalkerAbc):
     def join(self) -> None:
         files = []
         for file_objs in self._pool:
-            files.extend(file_objs)
+            files += file_objs
         self._files = files
 
     ##############################################

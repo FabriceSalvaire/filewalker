@@ -67,6 +67,8 @@ class File:
     ##############################################
 
     def __init__(self, parent: bytes, name: bytes) -> None:
+        if not name:
+            raise ValueError("name must be provided")
         self._parent = parent
         self._name = name
         self.vacuum()
@@ -100,6 +102,14 @@ class File:
         return f"{self.path_bytes}"
 
     ##############################################
+
+    @property
+    def is_file(self) -> bool:
+        return os.path.isfile(self.path_bytes)
+
+    @property
+    def exists(self) -> bool:
+        return os.path.exists(self.path_bytes)
 
     @property
     def is_symlink(self) -> bool:
