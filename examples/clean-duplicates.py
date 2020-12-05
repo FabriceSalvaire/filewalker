@@ -39,16 +39,9 @@ def find_duplicate(path, json_pool_path):
 
 ####################################################################################################
 
-def compare_duplicates(json_pool_path):
+def compare_duplicates(json_pool_path, results_path):
     pool = DuplicatePool.new_from_json(json_pool_path)
-
-    json_pool_path_ref = 'results-ref.json'
-    results_path = "./results.txt"
     pool_ref = load_to_duplicate_pool(results_path)
-    # pool_ref.write_json(json_pool_path_ref)
-    # for duplicate_set in pool_ref:
-    #     print(duplicate_set.paths)
-
     print(pool == pool_ref)
     # print(pool.compare(pool_ref))
 
@@ -147,7 +140,7 @@ def count_letter(name):
     return sum([1 for _ in name if _ in string.ascii_lowercase])
 
 def cleanup_by_name(duplicate_set):
-    if duplicate_set.is_same_parent: # or len(duplicate_set) == 2:
+    if duplicate_set.is_same_parent:
         duplicate_set.sort(key=lambda duplicate: count_letter(duplicate.path.stem), reverse=True)
         for duplicate in duplicate_set.followings:
             duplicate.mark()
@@ -158,7 +151,7 @@ PATH = '/home/...'
 JSON_POOL_PATH = 'results.json'
 
 # find_duplicate(PATH, JSON_POOL_PATH)
-# compare_duplicates(JSON_POOL_PATH)
+# compare_duplicates(JSON_POOL_PATH, "./results.txt")
 
 cleaner = Cleaner(JSON_POOL_PATH)
 cleaner.clean(cleanup_by_stem)
