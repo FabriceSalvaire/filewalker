@@ -28,7 +28,7 @@ from filewalker.common.logging import setup_logging
 logger = setup_logging()
 logger.info("Start ...")
 
-from filewalker.interface.rdfind import load_to_duplicate_pool
+from filewalker.interface import rdfind
 from filewalker.cleaner.DuplicateCleaner import DuplicateCleaner, DuplicatePool
 
 ####################################################################################################
@@ -39,9 +39,9 @@ def find_duplicate(path, json_pool_path):
 
 ####################################################################################################
 
-def compare_duplicates(json_pool_path, results_path):
+def compare_duplicate_with_rdfind(json_pool_path, results_path):
     pool = DuplicatePool.new_from_json(json_pool_path)
-    pool_ref = load_to_duplicate_pool(results_path)
+    pool_ref = rdfind.load_to_duplicate_pool(results_path)
     print(pool == pool_ref)
     # print(pool.compare(pool_ref))
 
@@ -151,7 +151,7 @@ PATH = '/home/...'
 JSON_POOL_PATH = 'results.json'
 
 # find_duplicate(PATH, JSON_POOL_PATH)
-# compare_duplicates(JSON_POOL_PATH, "./results.txt")
+# compare_duplicate_with_rdfind(JSON_POOL_PATH, "./results.txt")
 
 cleaner = Cleaner(JSON_POOL_PATH)
 cleaner.clean(cleanup_by_stem)
