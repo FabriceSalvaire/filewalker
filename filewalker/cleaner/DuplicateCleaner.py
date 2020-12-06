@@ -162,6 +162,8 @@ class DuplicateSet(MarkMixin):
     def __init__(self, files: List[File]) -> None:
         super().__init__()
         # Check there is any duplicate file in the list
+        if len(files) < 2:
+            raise ValueError("Require more than one file")
         paths = [_.path_bytes for _ in files]
         self._input_paths = set(paths)
         if len(self._input_paths) != len(files):
@@ -300,6 +302,8 @@ class DuplicateSet(MarkMixin):
     ##############################################
 
     def check(self) -> None:
+        if not self._pendings:
+            raise InconsistentDuplicateSet(f"pendings is empty")
         pendings = [_.path_bytes for _ in self._pendings]
         duplicates = [_.path_bytes for _ in self._duplicates]
         paths = set(pendings) | set(duplicates)
@@ -372,6 +376,32 @@ class DuplicatePool:
         for _ in self:
             _.sort()
         self._pool.sort(key=lambda duplicate_set: duplicate_set.first.path_bytes)
+
+    ##############################################
+
+    def sanity_check(self) -> bool:
+        paths = {}
+        for duplicate_set in self:
+            for _ in duplicate_set:
+                path = _.path
+                paths.setdefault(path, 0)
+                paths[path] += 1
+        good = True
+        for path, count in paths.items():
+            if path.exists():
+                if count > 1:
+                    self._logger.error(f"{path} is duplicated {count} times")
+                    good = False
+                if path.is_symlink():
+                    self._logger.error(f"{path} is a symlink")
+                    good = False
+                # number of hard links
+                if path.stat().st_nlink > 1:
+                    self._logger.warning(f"{path} as more than one hark links")
+            else:
+                self._logger.error(f"{path} doesn't exists")
+                good = False
+        return good
 
     ##############################################
 
