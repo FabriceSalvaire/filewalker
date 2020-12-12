@@ -18,13 +18,20 @@
 #
 ####################################################################################################
 
+__all__ = ["File"]
+
 ####################################################################################################
 
 from pathlib import Path
 from typing import Union, Type
 import hashlib
+import logging
 import os
 import subprocess
+
+####################################################################################################
+
+_module_logger = logging.getLogger(__name__)
 
 ####################################################################################################
 
@@ -45,6 +52,8 @@ class File:
 
     SOME_BYTES_SIZE = 64    # rdfind uses 64
     PARTIAL_SHA_BYTES = 10 * 1024
+
+    _logger = _module_logger.getChild("File")
 
     ##############################################
 
@@ -270,3 +279,44 @@ class File:
             and self.sha == other.sha
             and self.compare_with(other)
         )
+
+    ##############################################
+
+    def _find_rename_alternative(self, dst: Path, pattern: str) -> Path:
+        parent = dst.parent
+        stem = dst.stem
+        suffix = dst.suffix
+        i = 0
+        while True:
+            i += 1
+            new_dst = parent.joinpath(pattern.format(stem=stem, i=i, suffix=suffix))
+            if not new_dst.exists():
+                return new_dst
+
+    ##############################################
+
+    def rename(self, dst: Union[Path, str],
+               pattern: str = "{stem} ({i}){suffix}",
+               rebuild: bool = False
+               ) -> Union[Type["File"], None]:
+        if isinstance(dst, str):
+            dst = Path(dst)
+        if dst == self.path:
+            self._logger.warning(f"same destination{self.path}")
+            return None
+        if dst.exists():
+            new_dst = self._find_rename_alternative(dst, pattern)
+            self._logger.warning(f"{dst} exists, rename {self.path} to {new_dst}")
+            dst = new_dst
+        self.path.rename(dst)
+        if rebuild:
+            return self.from_path(dst)
+        else:
+            return dst
+
+    ##############################################
+
+    def move_to(self, dst: Union[Path, str]) -> None:
+        dst_path = Path(dst).joinpath(self.path.name)
+        self._logger.info(f"move {self.path_str} -> {dst_path}")
+        self.rename(dst_path)
