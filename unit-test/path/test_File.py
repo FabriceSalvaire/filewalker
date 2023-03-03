@@ -103,9 +103,17 @@ class TestFile(unittest.TestCase):
         with TemporaryDirectory() as directory:
             filename = "test.txt"
             file_obj, path = directory.make_file(filename)
+
+            # rename to self
+            self.assertIsNone(file_obj.rename(file_obj.path))
+
+            with self.assertRaises(FileNotFoundError):
+                file_obj.rename(directory.joinpath('nowhere/foo.txt'))
+
             dst_path = directory.joinpath("test-2.txt")
             effective_dst_path = file_obj.rename(dst_path)
             self.assertEqual(effective_dst_path, directory.joinpath(f"test-2.txt"))
+
             for i in range(1, 3):
                 file_obj, path = directory.make_file(filename)
                 effective_dst_path = file_obj.rename(dst_path)
@@ -113,8 +121,6 @@ class TestFile(unittest.TestCase):
             file_obj, path = directory.make_file("test-2 (4).txt")
             effective_dst_path = file_obj.rename(dst_path)
             self.assertEqual(effective_dst_path, directory.joinpath(f"test-2 (3).txt"))
-            # with self.assertRaises():
-            self.assertIsNone(file_obj.rename(file_obj.path))
 
 ####################################################################################################
 

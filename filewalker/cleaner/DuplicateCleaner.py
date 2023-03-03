@@ -18,7 +18,7 @@
 #
 ####################################################################################################
 
-__all__= [
+__all__ = [
     'AllFileMarked',
     'Duplicate',
     'DuplicateCleaner',
@@ -134,7 +134,7 @@ class Duplicate(MarkMixin):
 
     ##############################################
 
-    def symlink_to(self, to: Type["Duplicate"],  dry_run: bool = False, ) -> None:
+    def symlink_to(self, to: Type["Duplicate"], dry_run: bool = False, ) -> None:
         self._logger.info(f"link file {self.path} to {to.path}")
         # if not dry_run:
         #     self.path.unlink()
@@ -303,7 +303,7 @@ class DuplicateSet(MarkMixin):
 
     def check(self) -> None:
         if not self._pendings:
-            raise InconsistentDuplicateSet(f"pendings is empty")
+            raise InconsistentDuplicateSet("pendings is empty")
         pendings = [_.path_bytes for _ in self._pendings]
         duplicates = [_.path_bytes for _ in self._duplicates]
         paths = set(pendings) | set(duplicates)
@@ -369,6 +369,10 @@ class DuplicatePool:
 
     def __iter__(self) -> Iterator[DuplicateSet]:
         return iter(self._pool)
+
+    ##############################################
+
+    # def number_of_duplicates
 
     ##############################################
 
@@ -448,7 +452,7 @@ class DuplicatePool:
     def compare(self, ref: Type['DuplicatePool']):
         my_set = self.to_set()
         ref_set = ref.to_set()
-        return ref_set - my_set # , my_set - ref_set
+        return ref_set - my_set   # , my_set - ref_set
 
 ####################################################################################################
 
@@ -470,8 +474,8 @@ class DuplicateCleaner(WalkerAbc):
 
         walker.make_size_map()
 
-        # p = ""
-        # print("Check: ", walker.has_path(p))
+        #! p = ""
+        #! print("Check: ", walker.has_path(p))
 
         old_file_count = walker.count()
         print(f"Now have {old_file_count} files in total.")
@@ -486,22 +490,18 @@ class DuplicateCleaner(WalkerAbc):
         file_count = walker.count()
         print(f"Removed {old_file_count - file_count} files due to unique sizes from list. {file_count} files left.")
         old_file_count = file_count
-        print("Check: ", walker.has_path(p))
 
         print("Now eliminating candidates based on first bytes:")
         walker.remove_different_first_byte(fast_io)
         old_file_count = report(old_file_count)
-        print("Check: ", walker.has_path(p))
 
         print("Now eliminating candidates based on last bytes:")
         walker.remove_different_last_byte(fast_io)
         old_file_count = report(old_file_count)
-        print("Check: ", walker.has_path(p))
 
         print("Now eliminating candidates based on sha1 checksum:")
         walker.remove_different_sha(fast_io)
         old_file_count = report(old_file_count)
-        print("Check: ", walker.has_path(p))
 
         print(f"It seems like you have {old_file_count} files that are not unique")
         # Totally, 822 MiB can be reduced.

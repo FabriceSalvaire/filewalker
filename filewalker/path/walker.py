@@ -44,7 +44,15 @@ class WalkerAbc:
 
     ##############################################
 
-    def run(self, topdown: bool = False, sort: bool = False, followlinks: bool = False) -> None:
+    def run(self,
+            topdown: bool = False,
+            sort: bool = False,
+            followlinks: bool = False,
+            max_depth: int = -1,
+    ) -> None:
+        if max_depth >= 0:
+            topdown = True
+            depth = 0
         # to avoid UnicodeEncodeError: surrogates not allowed
         top = str(self._path).encode('utf-8')
         for dirpath, dirnames, filenames in os.walk(top, topdown=topdown, followlinks=followlinks):
@@ -57,6 +65,10 @@ class WalkerAbc:
             if hasattr(self, 'on_filename'):
                 for filename in filenames:
                     self.on_filename(dirpath, filename)
+            if max_depth >= 0:
+                depth += 1
+                if depth > max_depth:
+                    break
 
     ##############################################
 

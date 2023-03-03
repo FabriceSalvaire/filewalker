@@ -72,12 +72,13 @@ class ImageMimeType(MimeType):
 
     HANDLE = (
         '.jpg',
+        '.jpeg',
         '.png',
         '.tiff',
         '.webp',
     )
 
-    ##############################################
+    #############################################
 
     def __init__(self, file_obj: File):
         super().__init__(file_obj)
