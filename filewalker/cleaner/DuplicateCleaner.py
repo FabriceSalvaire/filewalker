@@ -47,6 +47,8 @@ _module_logger = logging.getLogger(__name__)
 
 class MarkMixin:
 
+    """Mixin to mark an object."""
+
     ##############################################
 
     def __init__(self) -> None:
@@ -71,6 +73,8 @@ class MarkMixin:
 ####################################################################################################
 
 class Duplicate(MarkMixin):
+
+    """Class to implements a duplicated file."""
 
     _logger = _module_logger.getChild("Duplicate")
 
@@ -121,6 +125,7 @@ class Duplicate(MarkMixin):
 
     def delete(self, dry_run: bool = False) -> None:
         self._logger.info(f"Delete file {self.path}")
+        # Fixme: DISABLED
         # if not dry_run:
         #     self.path.unlink()
 
@@ -128,6 +133,7 @@ class Duplicate(MarkMixin):
 
     def link_to(self, to: Type["Duplicate"], dry_run: bool = False) -> None:
         self._logger.info(f"link file {self.path} to {to.path}")
+        # Fixme: DISABLED
         # if not dry_run:
         #     self.path.unlink()
         #     self.path.link_to(to.path)
@@ -136,6 +142,7 @@ class Duplicate(MarkMixin):
 
     def symlink_to(self, to: Type["Duplicate"], dry_run: bool = False, ) -> None:
         self._logger.info(f"link file {self.path} to {to.path}")
+        # Fixme: DISABLED
         # if not dry_run:
         #     self.path.unlink()
         #     self.path.symlink_to(to.path)
@@ -154,6 +161,8 @@ class InconsistentDuplicateSet(ValueError):
 ####################################################################################################
 
 class DuplicateSet(MarkMixin):
+
+    """Class to implements a set of duplicated files."""
 
     _logger = _module_logger.getChild("DuplicateSet")
 
@@ -252,6 +261,7 @@ class DuplicateSet(MarkMixin):
     ##############################################
 
     def sort(self, key=None, reverse: bool = False) -> None:
+        # Fixme: sort utf-8 bytes ?
         if key is None:
             key = lambda duplicate: duplicate.path_bytes
         self._pendings.sort(key=key, reverse=reverse)
@@ -264,7 +274,7 @@ class DuplicateSet(MarkMixin):
         return len(parents) == 1
 
     @property
-    def common_parent(self) -> bool:
+    def common_parent(self) -> Path:
         parents = [_.parent.parts for _ in self.paths]
         parts = []
         i = 0
@@ -320,6 +330,9 @@ class DuplicateSet(MarkMixin):
 ####################################################################################################
 
 class DuplicatePool:
+
+    # Fixme: naming...
+    """Class to implements a pool of set of duplicated files (DuplicateSet)."""
 
     _logger = _module_logger.getChild("DuplicatePool")
 
@@ -462,6 +475,8 @@ class DuplicateCleaner(WalkerAbc):
 
     ##############################################
 
+    # Fixme: cleaner
+
     @classmethod
     def find_duplicate(
             cls,
@@ -470,7 +485,7 @@ class DuplicateCleaner(WalkerAbc):
     ) -> Type['Cleaner']:
         walker = cls(path)
         print(f'Now scanning "{walker.path}"')
-        walker.run(topdown=False, sort=False, followlinks=False)
+        walker.run(top_down=False, sort=False, follow_links=False)
 
         walker.make_size_map()
 
@@ -491,6 +506,7 @@ class DuplicateCleaner(WalkerAbc):
         print(f"Removed {old_file_count - file_count} files due to unique sizes from list. {file_count} files left.")
         old_file_count = file_count
 
+        # Fixme: ok ??? same size, same first bytes but followings...
         print("Now eliminating candidates based on first bytes:")
         walker.remove_different_first_byte(fast_io)
         old_file_count = report(old_file_count)
@@ -521,8 +537,8 @@ class DuplicateCleaner(WalkerAbc):
 
     def __init__(self, path: Union[AnyStr, Path]) -> None:
         super().__init__(path)
-        self._files = []
-        self._pool = None
+        self._files = []   # : [File]
+        self._pool = None   # : [[File]] grouped by size
 
     ##############################################
 
@@ -583,6 +599,7 @@ class DuplicateCleaner(WalkerAbc):
     def count(self) -> int:
         count = 0
         for file_objs in self._pool:
+            # Fixme: len is ambiguous
             count += len(file_objs)
         return count
 

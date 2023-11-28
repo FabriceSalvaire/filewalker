@@ -18,6 +18,27 @@
 #
 ####################################################################################################
 
+"""**Design Note**
+
+On Linux, filenames are just a bunch of bytes, and are not necessarily encoded in a particular
+encoding.  Python 3 tries to turn everything into Unicode strings, and implements a scheme to
+translate byte strings to Unicode strings and back without loss, and without knowing the original
+encoding.  Python3 uses partial surrogates to encode the 'bad' bytes, but the normal UTF8 encoder
+can't handle them when printing to the terminal.
+
+Example::
+
+    # decode
+    bad_utf8 = b'C\xc3N'.decode('utf8','surrogateescape')
+    # encode
+    bad_utf8.encode('utf8','surrogateescape')
+    # but UnicodeEncodeError: 'utf-8' codec can't encode character ...
+    print(bad_utf8)
+
+"""
+
+####################################################################################################
+
 __all__ = ["File"]
 
 ####################################################################################################
@@ -58,7 +79,7 @@ class File:
     ##############################################
 
     @staticmethod
-    def to_bytes(_):
+    def to_bytes(_) -> bytes:
         return str(_).encode('utf-8')
 
     ##############################################
@@ -76,6 +97,7 @@ class File:
     ##############################################
 
     def __init__(self, parent: bytes, name: bytes) -> None:
+        # Fixme: design why bytes and not str or Path ???
         if not name:
             raise ValueError("name must be provided")
         self._parent = parent
@@ -102,7 +124,7 @@ class File:
 
     @property
     def path(self) -> Path:
-        # Fixme: cache ?
+        # Fxixme: cache ?
         return Path(self.path_str)
 
     ##############################################
@@ -236,13 +258,14 @@ class File:
     def compare_with(self, other: Type['File'], posix: bool = False) -> bool:
         if posix:
             return self._compare_with_posix(other)
-        else:
-            return self._compare_with_py(other)
+        return self._compare_with_py(other)
 
     ##############################################
 
     def _compare_with_posix(self, other: Type['File']) -> bool:
+        # Fixme: portability
         command = ('/usr/bin/cmp', '--silent', self.path_bytes, other.path_bytes)
+        # Fixme: check ?
         return subprocess.run(command).returncode == 0
 
     ##############################################
@@ -289,7 +312,7 @@ class File:
         i = 0
         while True:
             i += 1
-            new_dst = parent.joinpath(pattern.format(stem=stem, i=i, suffix=suffix))
+            new_dst = parent / pattern.format(stem=stem, i=i, suffix=suffix)
             if not new_dst.exists():
                 return new_dst
 
@@ -317,6 +340,6 @@ class File:
     ##############################################
 
     def move_to(self, dst: Union[Path, str]) -> None:
-        dst_path = Path(dst).joinpath(self.path.name)
+        dst_path = Path(dst) / self.path.name
         self._logger.info(f"move {self.path_str} -> {dst_path}")
         self.rename(dst_path)

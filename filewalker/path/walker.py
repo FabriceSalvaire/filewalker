@@ -27,6 +27,8 @@ import os
 
 class WalkerAbc:
 
+    """Base class to implement a walk in a file hierarchy."""
+
     ##############################################
 
     # def __init__(self, path : Union[AnyStr, PathLike[AnyStr]]) -> None:
@@ -45,20 +47,20 @@ class WalkerAbc:
     ##############################################
 
     def run(self,
-            topdown: bool = False,
+            top_down: bool = False,
             sort: bool = False,
-            followlinks: bool = False,
+            follow_links: bool = False,
             max_depth: int = -1,
-    ) -> None:
+            ) -> None:
         if max_depth >= 0:
-            topdown = True
+            top_down = True
             depth = 0
         # to avoid UnicodeEncodeError: surrogates not allowed
         top = str(self._path).encode('utf-8')
-        for dirpath, dirnames, filenames in os.walk(top, topdown=topdown, followlinks=followlinks):
+        for dirpath, dirnames, filenames in os.walk(top, topdown=top_down, followlinks=follow_links):
             # dirnames and filenames are List[bytes]
-            if topdown and sort:
-                self.sort_direnames(dirnames)
+            if top_down and sort:
+                self.sort_dirnames(dirnames)
             if hasattr(self, 'on_directory'):
                 for directory in dirnames:
                     self.on_directory(dirpath, directory)
@@ -72,7 +74,7 @@ class WalkerAbc:
 
     ##############################################
 
-    def sort_direnames(self, dirnames: List[bytes]) -> None:
+    def sort_dirnames(self, dirnames: List[bytes]) -> None:
         # Fixme: sort utf-8 bytes ???
         dirnames.sort()
 

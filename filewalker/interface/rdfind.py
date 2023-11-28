@@ -36,7 +36,7 @@ rdfind results.txt format:
 from pathlib import Path
 from typing import AnyStr, List, Union
 
-from filewalker.path.file import File
+# from filewalker.path.file import File
 from filewalker.common.string import find_nth
 from filewalker.cleaner.DuplicateCleaner import DuplicatePool
 
