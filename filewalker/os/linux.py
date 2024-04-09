@@ -30,10 +30,12 @@ see also https://psutil.readthedocs.io/en/latest/#psutil.disk_partitions
 
 """
 
-from pathlib import Path
+####################################################################################################
+
 # from os import PathLike
-from typing import AnyStr, Iterator, Union
 # import subprocess
+from pathlib import Path
+from typing import AnyStr, Iterator, Union
 
 ####################################################################################################
 
@@ -41,10 +43,10 @@ class MountPoint:
 
     ##############################################
 
-    def __init__(self, mount_point: str, device: str, type: str) -> None:
+    def __init__(self, mount_point: str, device: str, type_: str) -> None:
         self._mount_point = mount_point
         self._device = device
-        self._type = type
+        self._type = type_
 
     ##############################################
 
@@ -96,7 +98,6 @@ class MountPoints:
     ##############################################
 
     def __init__(self) -> None:
-
         self._mounts = []
         self._read_mount_points()
         self._map = {_.mount_point: _ for _ in self._mounts}

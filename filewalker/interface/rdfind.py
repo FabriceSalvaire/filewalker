@@ -45,7 +45,7 @@ from filewalker.cleaner.DuplicateCleaner import DuplicatePool
 def load(path: Union[AnyStr, Path]) -> List[List[str]]:
     path = Path(path).expanduser().resolve()
     duplicate_set = []
-    with open(path) as fh:
+    with open(path, encoding='utf8') as fh:
         paths = []
         for line in fh.readlines():
             if line.startswith('#'):

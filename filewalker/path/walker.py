@@ -18,8 +18,8 @@
 #
 ####################################################################################################
 
-from pathlib import Path
 # from os import PathLike
+from pathlib import Path
 from typing import AnyStr, List, Union
 import os
 
@@ -81,9 +81,9 @@ class WalkerAbc:
     ##############################################
 
     # def on_directory(self, dirpath: bytes, dirname: bytes) -> None:
-    #     pass
+    #     raise NotImplementedError
 
     ##############################################
 
     # def on_filename(self, dirpath: bytes, filename: bytes) -> None:
-    #     pass
+    #     raise NotImplementedError
