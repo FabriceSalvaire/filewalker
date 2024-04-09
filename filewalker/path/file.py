@@ -97,7 +97,8 @@ class File:
     ##############################################
 
     def __init__(self, parent: bytes, name: bytes) -> None:
-        # Fixme: design why bytes and not str or Path ???
+        # Fixme: design
+        #  why bytes and not str or Path ???
         if not name:
             raise ValueError("name must be provided")
         self._parent = parent
@@ -124,7 +125,7 @@ class File:
 
     @property
     def path(self) -> Path:
-        # Fxixme: cache ?
+        # Fixme: cache ?
         return Path(self.path_str)
 
     ##############################################

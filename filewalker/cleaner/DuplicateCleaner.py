@@ -188,56 +188,69 @@ class DuplicateSet(MarkMixin):
     ##############################################
 
     def __len__(self) -> int:
+        """Return number of pendings"""
         return len(self._pendings)
 
     @property
     def is_singleton(self) -> bool:
+        """Return True if only one pending"""
         return len(self._pendings) == 1
 
     @property
     def number_of_duplicates(self) -> int:
+        """Return number of duplicates"""
         return len(self._duplicates)
 
     ##############################################
 
     def __iter__(self) -> Iterator[Duplicate]:
+        """Iterate on pendings"""
         return iter(self._pendings)
 
     def __getitem__(self, _slice) -> Duplicate:
+        """Get pendings"""
         return self._pendings[_slice]
 
     @property
     def first(self) -> Duplicate:
+        """Return first pending"""
         return self._pendings[0]
 
     @property
     def second(self) -> Duplicate:
+        """Return second pending"""
         return self._pendings[1]
 
     @property
     def followings(self) -> Iterator[Duplicate]:
+        """Iterate on pendings after first"""
         return iter(self._pendings[1:])
 
     @property
     def duplicates(self) -> Iterator[Duplicate]:
+        """Iterate on duplicates"""
         return iter(self._duplicates)
 
     ##############################################
 
     @property
     def marked(self) -> List[File]:
+        """Return list of marked in pendings"""
         return [_ for _ in self if _]
 
     @property
     def unmarked(self) -> List[File]:
+        """Return list of unmarked in pendings"""
         return [_ for _ in self if not _]
 
     @property
     def number_of_marked(self) -> int:
+        """Count marked in pendings"""
         return sum([1 for _ in self if _])
 
     @property
     def number_of_unmarked(self) -> int:
+        """Count unmarked in pendings"""
         return sum([1 for _ in self if not _])
 
     ##############################################
@@ -293,6 +306,7 @@ class DuplicateSet(MarkMixin):
     ##############################################
 
     def commit(self) -> None:
+        """Move marked files to duplicate list"""
         if self.number_of_marked:
             if not self.number_of_unmarked:
                 raise AllFileMarked(f"All files are marked in duplicate set {self.paths_bytes}")
@@ -303,6 +317,11 @@ class DuplicateSet(MarkMixin):
     ##############################################
 
     def rollback(self, rollback_duplicates: bool = False) -> None:
+        """
+        - if *rollback_duplicates* move duplicates in pending mist
+        - unmark pendings
+        """
+        # Fixme: API ???
         if rollback_duplicates:
             self._pendings += self._duplicates
             self._duplicates = []
@@ -312,6 +331,10 @@ class DuplicateSet(MarkMixin):
     ##############################################
 
     def check(self) -> None:
+        """Perform some sanity checks
+        - pendings is not empty
+        - pendings + duplicates = input
+        """
         if not self._pendings:
             raise InconsistentDuplicateSet("pendings is empty")
         pendings = [_.path_bytes for _ in self._pendings]
@@ -390,6 +413,7 @@ class DuplicatePool:
     ##############################################
 
     def sort(self) -> None:
+        """Sort by path"""
         for _ in self:
             _.sort()
         self._pool.sort(key=lambda duplicate_set: duplicate_set.first.path_bytes)
@@ -471,6 +495,17 @@ class DuplicatePool:
 
 class DuplicateCleaner(WalkerAbc):
 
+    """
+    Find duplicate
+
+    Algorithm:
+    - sort files by size
+    - eliminate singleton
+    - eliminate candidates based on first bytes
+    - eliminate candidates based on last bytes
+    - eliminate candidates based on sha1
+    """
+
     _logger = _module_logger.getChild("DuplicateCleaner")
 
     ##############################################
@@ -523,6 +558,8 @@ class DuplicateCleaner(WalkerAbc):
         # Totally, 822 MiB can be reduced.
 
         return walker
+
+    ##############################################
 
     @classmethod
     def find_duplicate_set(
@@ -589,6 +626,7 @@ class DuplicateCleaner(WalkerAbc):
     ##############################################
 
     def join(self) -> None:
+        # used by .feature_fast_io
         files = []
         for file_objs in self._pool:
             files += file_objs
