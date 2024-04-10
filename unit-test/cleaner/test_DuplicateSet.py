@@ -25,7 +25,11 @@ import unittest
 ####################################################################################################
 
 from filewalker.path.file import File
-from filewalker.cleaner.DuplicateCleaner import *
+from filewalker.cleaner.DuplicateCleaner import (
+    DuplicateSet,
+    NonUniqFiles, AllFileMarked, InconsistentDuplicateSet,
+)
+from filewalker.unit_test.file import TemporaryDirectory, make_content1, make_content2
 
 ####################################################################################################
 
@@ -34,7 +38,6 @@ class TestDuplicateSet(unittest.TestCase):
     ##############################################
 
     def test_ctor(self):
-
         paths = (
             '/foo/bar/a',
             '/foo/bar/a',
@@ -46,7 +49,6 @@ class TestDuplicateSet(unittest.TestCase):
     ##############################################
 
     def test_mark(self):
-
         paths = (
             '/foo/bar/a',
             '/foo/a',
@@ -107,6 +109,22 @@ class TestDuplicateSet(unittest.TestCase):
         first._name = name
         duplicate_set.check()
         duplicate_set = None
+
+    ##############################################
+
+    def test_is_duplicate(self):
+        with TemporaryDirectory() as directory:
+            content1 = make_content1(987)
+            content2 = make_content2(541)
+            print(f"content1 {content1[:100]}")
+            print(f"content2 {content2[:100]}")
+            file1, path1 = directory.make_file('file1', content1)
+            file2, path2 = directory.make_file('file2', content2)
+            dupfile, dupfile_path = directory.make_file('dupfile1', content1)
+            _ = DuplicateSet((file1, dupfile))
+            self.assertTrue(_.check_is_duplicate())
+            _ = DuplicateSet((file1, file2, dupfile))
+            self.assertFalse(_.check_is_duplicate())
 
 ####################################################################################################
 

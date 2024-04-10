@@ -35,6 +35,7 @@ from pathlib import Path
 from typing import AnyStr, Iterator, List, Set, Type, Union
 import json
 import logging
+import os
 
 from filewalker.path.file import File
 from filewalker.path.walker import WalkerAbc
@@ -42,6 +43,15 @@ from filewalker.path.walker import WalkerAbc
 ####################################################################################################
 
 _module_logger = logging.getLogger(__name__)
+
+LINESEP = os.linesep
+
+####################################################################################################
+
+type StrList = list[str]
+type ByteList = list[bytes]
+type AnyStrList = Union[StrList, ByteList]
+type ByteListIt = Generator[ByteList, None, None]   # or Iterator[ByteList]
 
 ####################################################################################################
 
@@ -76,7 +86,7 @@ class Duplicate(MarkMixin):
 
     """Class to implements a duplicated file."""
 
-    _logger = _module_logger.getChild("Duplicate")
+    _logger = _module_logger.getChild('Duplicate')
 
     ##############################################
 
@@ -87,11 +97,11 @@ class Duplicate(MarkMixin):
 
     ##############################################
 
-    def __str__(self):
+    def __str__(self) -> str:
         # return str(self.path_bytes)
         return str(self.path_str)
 
-    def __repr__(self):
+    def __repr__(self) -> str:
         return str(self)
 
     ##############################################
@@ -118,7 +128,7 @@ class Duplicate(MarkMixin):
 
     ##############################################
 
-    def compare_with(self, other: Type["Duplicate"], posix: bool = False) -> bool:
+    def compare_with(self, other: 'Duplicate', posix: bool = False) -> bool:
         return self.file.compare_with(other.file, posix)
 
     ##############################################
@@ -131,7 +141,7 @@ class Duplicate(MarkMixin):
 
     ##############################################
 
-    def link_to(self, to: Type["Duplicate"], dry_run: bool = False) -> None:
+    def link_to(self, to: 'Duplicate', dry_run: bool = False) -> None:
         self._logger.info(f"link file {self.path} to {to.path}")
         # Fixme: DISABLED
         # if not dry_run:
@@ -140,7 +150,7 @@ class Duplicate(MarkMixin):
 
     ##############################################
 
-    def symlink_to(self, to: Type["Duplicate"], dry_run: bool = False, ) -> None:
+    def symlink_to(self, to: 'Duplicate', dry_run: bool = False, ) -> None:
         self._logger.info(f"link file {self.path} to {to.path}")
         # Fixme: DISABLED
         # if not dry_run:
@@ -164,7 +174,14 @@ class DuplicateSet(MarkMixin):
 
     """Class to implements a set of duplicated files."""
 
-    _logger = _module_logger.getChild("DuplicateSet")
+    _logger = _module_logger.getChild('DuplicateSet')
+
+    ##############################################
+
+    @classmethod
+    def new_from_str(cls, paths: AnyStrList) -> None:
+        paths = [File.from_str(_) for _ in paths]
+        return cls(paths)
 
     ##############################################
 
@@ -256,7 +273,7 @@ class DuplicateSet(MarkMixin):
     ##############################################
 
     @property
-    def paths_bytes(self) -> List[bytes]:
+    def paths_bytes(self) -> ByteList:
         return [_.path_bytes for _ in self]
 
     @property
@@ -345,10 +362,23 @@ class DuplicateSet(MarkMixin):
 
     ##############################################
 
+    def check_is_duplicate(self) -> bool:
+        ref = self.first
+        for _ in self.followings:
+            self._logger.debug(f"{LINESEP}{ref}{LINESEP}{_}")
+            if not ref.compare_with(_):
+                return False
+        return True
+
+    ##############################################
+
     def delete_duplicates(self, dry_run: bool = False) -> None:
         self.check()
         for _ in self._duplicates:
             _.delete(dry_run)
+
+
+type DuplicateSetIt = Iterator[DuplicateSet]
 
 ####################################################################################################
 
@@ -357,53 +387,52 @@ class DuplicatePool:
     # Fixme: naming...
     """Class to implements a pool of set of duplicated files (DuplicateSet)."""
 
-    _logger = _module_logger.getChild("DuplicatePool")
+    _logger = _module_logger.getChild('DuplicatePool')
 
     ##############################################
 
     @classmethod
-    def new_from_json(cls, path: Union[AnyStr, Path]) -> Type['DuplicatePool']:
+    def new_from_json(cls, path: AnyStr | Path) -> 'DuplicatePool':
+        pool = cls()
         with open(path, 'r', encoding="utf-8") as fh:
             data = json.load(fh)
-        pool = cls()
-        for paths in data:
-            pool.add_from_paths(paths)
+            for _ in data:
+                pool.add_from_paths(_)
         return pool
 
     ##############################################
 
     @classmethod
-    def new_from_paths(cls, paths: List[List[str]]) -> Type['DuplicatePool']:
+    def new_from_paths(cls, paths: ByteListIt) -> 'DuplicatePool':
         pool = cls()
-        for paths in paths:
-            pool.add_from_paths(paths)
+        for _ in paths:
+            pool.add_from_paths(_)
         return pool
 
     ##############################################
 
-    def __init__(self, it: Iterator[DuplicateSet] = None) -> None:
+    def __init__(self, it: DuplicateSetIt = None) -> None:
         self._pool = []
         if it is not None:
             self.fill(it)
 
     ##############################################
 
-    def fill(self, it: Iterator[DuplicateSet]) -> None:
+    def fill(self, it: DuplicateSetIt) -> None:
         self._pool.extend(it)
 
     def add(self, duplicate: DuplicateSet) -> None:
         self._pool.append(duplicate)
 
-    def add_from_paths(self, paths: List[str]) -> None:
-        paths = [File.from_str(_) for _ in paths]
-        self.add(DuplicateSet(paths))
+    def add_from_paths(self, paths: ByteList) -> None:
+        self.add(DuplicateSet.new_from_paths(paths))
 
     ##############################################
 
     def __len__(self) -> int:
         return len(self._pool)
 
-    def __iter__(self) -> Iterator[DuplicateSet]:
+    def __iter__(self) -> DuplicateSetIt:
         return iter(self._pool)
 
     ##############################################
@@ -466,7 +495,7 @@ class DuplicatePool:
 
     ##############################################
 
-    def __eq__(self, other: Type['DuplicatePool']):
+    def __eq__(self, other: 'DuplicatePool'):
         self.sort()
         other.sort()
         if len(self) != len(other):
@@ -486,7 +515,7 @@ class DuplicatePool:
 
     ##############################################
 
-    def compare(self, ref: Type['DuplicatePool']):
+    def compare(self, ref: 'DuplicatePool'):
         my_set = self.to_set()
         ref_set = ref.to_set()
         return ref_set - my_set   # , my_set - ref_set
@@ -600,7 +629,7 @@ class DuplicateCleaner(WalkerAbc):
     # def __iter__(self) -> Iterator[File]:
     #     return iter(self._files)
 
-    def duplicate_iter(self) -> Iterator[DuplicateSet]:
+    def duplicate_iter(self) -> DuplicateSetIt:
         return iter([DuplicateSet(_) for _ in self._pool])
 
     ##############################################

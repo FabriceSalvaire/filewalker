@@ -20,62 +20,13 @@
 
 ####################################################################################################
 
-from pathlib import Path
-import os
-import tempfile
 import unittest
 # from unittest import skip
 
 ####################################################################################################
 
-from filewalker.path.file import *
-
-####################################################################################################
-
-class TemporaryDirectory:
-
-    ##############################################
-
-    def __init__(self, *args, **kwargs):
-        self._tmp_directory = tempfile.TemporaryDirectory()
-        print('Created temporary directory', self._tmp_directory.name)
-        self._chdir = kwargs.get('chdir', False)
-
-    ##############################################
-
-    def __enter__(self):
-        path = self._tmp_directory.name
-        if self._chdir:
-            os.chdir(path)
-        return TemporaryDirectoryWrapper(path)
-
-    ##############################################
-
-    def __exit__(self, exc_type, exc_value, traceback):
-        self._tmp_directory.cleanup()
-
-####################################################################################################
-
-class TemporaryDirectoryWrapper:
-
-    ##############################################
-
-    def __init__(self, path: str):
-        self._path = Path(path)
-
-    ##############################################
-
-    def joinpath(self, filename: str):
-        return self._path.joinpath(filename)
-
-    ##############################################
-
-    def make_file(self, filename: str, content: str = ""):
-        path = self.joinpath(filename)
-        print(f"{path}")
-        with open(path, 'w') as fh:
-            fh.write(content)
-        return File.from_path(path), path
+from filewalker.path.file import File
+from filewalker.unit_test.file import TemporaryDirectory, make_content1, make_content2
 
 ####################################################################################################
 
@@ -84,7 +35,6 @@ class TestFile(unittest.TestCase):
     ##############################################
 
     def test_ctor(self):
-
         filename = "test.txt"
         content = "hello" * 100
         sha1sum = "a6fbdf72b1c923162bc17158b51bfb154fd900b2"
@@ -121,6 +71,23 @@ class TestFile(unittest.TestCase):
             file_obj, path = directory.make_file("test-2 (4).txt")
             effective_dst_path = file_obj.rename(dst_path)
             self.assertEqual(effective_dst_path, directory.joinpath(f"test-2 (3).txt"))
+
+    ##############################################
+
+    def test_equal(self):
+        with TemporaryDirectory() as directory:
+            content1 = make_content1(987)
+            content2 = make_content2(541)
+            print(f"content1 {content1[:100]}")
+            print(f"content2 {content2[:100]}")
+            file1, path1 = directory.make_file('file1', content1)
+            file2, path2 = directory.make_file('file2', content2)
+            dupfile, dupfile_path = directory.make_file('dupfile1', content1)
+            self.assertNotEqual(file1.sha, file2.sha)
+            self.assertEqual(file1.sha, dupfile.sha)
+            for posix in (True, False):
+                self.assertFalse(file1.compare_with(file2, posix=posix))
+                self.assertTrue(file1.compare_with(dupfile, posix=posix))
 
 ####################################################################################################
 

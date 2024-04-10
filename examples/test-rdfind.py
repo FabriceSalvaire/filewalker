@@ -1,7 +1,9 @@
+#! /usr/bin/env python3
+
 ####################################################################################################
 #
 # filewalker — ...
-# Copyright (C) 2020 Fabrice Salvaire
+# Copyright (C) 2024 Fabrice Salvaire
 #
 # This program is free software: you can redistribute it and/or modify
 # it under the terms of the GNU General Public License as
@@ -18,17 +20,34 @@
 #
 ####################################################################################################
 
-__all__ = ['find_nth']
+import argparse
+from pathlib import Path
+
+import logging
+from filewalker.common.logging import setup_logging
+logger = setup_logging(level=logging.DEBUG)
+logger.info("Start ...")
+
+from filewalker.interface.rdfind import Rdfind
 
 ####################################################################################################
 
-from typing import AnyStr
+parser = argparse.ArgumentParser(
+    prog='',
+    description='',
+    epilog='',
+)
 
-####################################################################################################
+parser.add_argument(
+    'path',
+)
 
-def find_nth(text: AnyStr, pattern: AnyStr, n: int) -> int:
-    start = text.find(pattern)
-    while start >= 0 and n > 1:
-        start = text.find(pattern, start + len(pattern))
-        n -= 1
-    return start
+args = parser.parse_args()
+
+rdfind = Rdfind(args.path)
+# for duplicate_set in rdfind.to_duplicate_pool:
+for duplicate_set in rdfind.duplicate_set_it:
+    print('-'*50)
+    for _ in duplicate_set:
+        print(_)
+    duplicate_set.check_is_duplicate()

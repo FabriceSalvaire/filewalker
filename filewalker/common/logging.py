@@ -33,13 +33,16 @@ default_config_file = ConfigInstall.Logging.default_config_file()
 
 ####################################################################################################
 
-def fix_formater(logging_config):
+LOG_LEVEL_ENV = 'filewalkerLogLevel'
 
+####################################################################################################
+
+def _fix_formater(logging_config: logging.config) -> None:
     if ConfigInstall.OS.on_linux:
         # Fixme: \033 is not interpreted in YAML
-        formatter_config = logging_config['formatters']['ansi']['format']
-        logging_config['formatters']['ansi']['format'] = formatter_config.replace('<ESC>', '\033')
-
+        ansi = logging_config['formatters']['ansi']
+        formatter_config = ansi['format']
+        ansi['format'] = formatter_config.replace('<ESC>', '\033')
     if ConfigInstall.OS.on_linux:
         formatter = 'ansi'
     else:
@@ -48,20 +51,24 @@ def fix_formater(logging_config):
 
 ####################################################################################################
 
-def setup_logging(config_file=default_config_file):
-
+def setup_logging(
+    config_file: str = default_config_file,
+    level: int = None,
+) -> logging.Logger:
     logging_config = yaml.load(
-        open(str(config_file), 'r'),
+        open(str(config_file), 'r', encoding='utf8'),
         Loader=yaml.SafeLoader,
     )
-    fix_formater(logging_config)
+    _fix_formater(logging_config)
     logging.config.dictConfig(logging_config)
 
     root_logger = logging.getLogger('filewalker')
 
-    log_level_env = 'filewalkerLogLevel'
-    if log_level_env in os.environ:
-        numeric_level = getattr(logging, os.environ[log_level_env], None)
-        root_logger.setLevel(numeric_level)
+    if level is not None:
+        root_logger.setLevel(level)
+    else:
+        if LOG_LEVEL_ENV in os.environ:
+            numeric_level = getattr(logging, os.environ[LOG_LEVEL_ENV], None)
+            root_logger.setLevel(numeric_level)
 
     return root_logger

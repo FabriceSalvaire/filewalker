@@ -39,12 +39,12 @@ Example::
 
 ####################################################################################################
 
-__all__ = ["File"]
+__all__ = ['File']
 
 ####################################################################################################
 
 from pathlib import Path
-from typing import Union, Type
+from typing import AnyStr, Optional, Type
 import hashlib
 import logging
 import os
@@ -74,24 +74,39 @@ class File:
     SOME_BYTES_SIZE = 64    # rdfind uses 64
     PARTIAL_SHA_BYTES = 10 * 1024
 
-    _logger = _module_logger.getChild("File")
+    _logger = _module_logger.getChild('File')
 
     ##############################################
 
     @staticmethod
-    def to_bytes(_) -> bytes:
+    def to_bytes(_: str) -> bytes:
         return str(_).encode('utf-8')
 
     ##############################################
 
     @classmethod
-    def from_str(cls, path: str) -> Type["File"]:
+    def from_str(cls, path: str | bytes) -> 'File':
+        if isinstance(path, bytes):
+            return cls.from_bytes(path)
         return cls.from_path(Path(path))
 
     ##############################################
 
     @classmethod
-    def from_path(cls, path: Path) -> Type["File"]:
+    def from_bytes(cls, path: bytes) -> 'File':
+        _ = path.rfind(b'/')
+        if _ != -1:
+            parent = path[:_]
+            name = path[_+1:]
+        else:
+            parent = b''
+            name = bytes(path)
+        return cls(parent, name)
+
+    ##############################################
+
+    @classmethod
+    def from_path(cls, path: Path) -> 'File':
         return cls(cls.to_bytes(path.parent), cls.to_bytes(path.name))
 
     ##############################################
@@ -204,7 +219,7 @@ class File:
 
     ##############################################
 
-    def _read_content(self, size: Union[int, None] = None) -> bytes:
+    def _read_content(self, size: Optional[int] = None) -> bytes:
         # unlikely to happen
         # if self.is_empty:
         #     return b''
@@ -232,7 +247,7 @@ class File:
 
     ##############################################
 
-    def partial_sha(self, size: Union[int, None] = None) -> str:
+    def partial_sha(self, size: Optional[int] = None) -> str:
         if self.is_empty:
             return ''
         if size is None:
@@ -242,28 +257,28 @@ class File:
 
     ##############################################
 
-    def first_bytes(self, size: Union[int, None] = None) -> str:
+    def first_bytes(self, size: Optional[int] = None) -> str:
         if size is None:
             size = self.SOME_BYTES_SIZE
         return self._read_content(size)
 
     ##############################################
 
-    def last_bytes(self, size: Union[int, None] = None) -> str:
+    def last_bytes(self, size: Optional[int] = None) -> str:
         if size is None:
             size = self.SOME_BYTES_SIZE
         return self._read_content(-size)
 
     ##############################################
 
-    def compare_with(self, other: Type['File'], posix: bool = False) -> bool:
+    def compare_with(self, other: 'File', posix: bool = False) -> bool:
         if posix:
             return self._compare_with_posix(other)
         return self._compare_with_py(other)
 
     ##############################################
 
-    def _compare_with_posix(self, other: Type['File']) -> bool:
+    def _compare_with_posix(self, other: 'File') -> bool:
         # Fixme: portability
         command = ('/usr/bin/cmp', '--silent', self.path_bytes, other.path_bytes)
         # Fixme: check ?
@@ -271,7 +286,7 @@ class File:
 
     ##############################################
 
-    def _compare_with_py(self, other: Type['File']) -> bool:
+    def _compare_with_py(self, other: 'File') -> bool:
         size = self.size
         if size != other.size:
             return False
@@ -293,7 +308,7 @@ class File:
 
     ##############################################
 
-    def is_identical_to(self, other: Type['File']):
+    def is_identical_to(self, other: 'File'):
         return (
             not self.is_empty
             and self.size == other.size
@@ -319,10 +334,10 @@ class File:
 
     ##############################################
 
-    def rename(self, dst: Union[Path, str],
+    def rename(self, dst: Path | str,
                pattern: str = "{stem} ({i}){suffix}",
                rebuild: bool = False
-               ) -> Union[Type["File"], None]:
+               ) -> Type['File'] | None:
         if isinstance(dst, str):
             dst = Path(dst)
         if dst == self.path:
@@ -340,7 +355,13 @@ class File:
 
     ##############################################
 
-    def move_to(self, dst: Union[Path, str]) -> None:
+    def move_to(self, dst: Path | str) -> None:
         dst_path = Path(dst) / self.path.name
         self._logger.info(f"move {self.path_str} -> {dst_path}")
         self.rename(dst_path)
+
+    ##############################################
+
+    def write(self, data: bytes) -> None:
+        with open(self.path_bytes, 'wb') as fh:
+            fh.write(data)
