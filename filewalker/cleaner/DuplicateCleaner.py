@@ -32,7 +32,7 @@ __all__ = [
 
 from operator import attrgetter
 from pathlib import Path
-from typing import AnyStr, Iterator, List, Set, Type, Union
+from typing import AnyStr, Iterator, List, Set, Type, Union, Generator
 import json
 import logging
 import os
