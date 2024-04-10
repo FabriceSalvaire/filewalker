@@ -104,6 +104,10 @@ class Duplicate(MarkMixin):
     ##############################################
 
     @property
+    def file(self) -> File:
+        return self._file
+
+    @property
     def path_bytes(self) -> bytes:
         return self._file.path_bytes
 
@@ -111,17 +115,31 @@ class Duplicate(MarkMixin):
     def path_str(self) -> str:
         return self._file.path_str
 
+    ##############################################
+
     @property
     def path(self) -> Path:
         return self._path
 
     @property
-    def exists(self) -> bool:
-        return self._path.exists()
+    def parent(self) -> Path:
+        return self._path.parent
 
     @property
-    def file(self) -> File:
-        return self._file
+    def name(self) -> str:
+        return self._path.name
+
+    @property
+    def stem(self) -> str:
+        return self._path.stem
+
+    @property
+    def suffix(self) -> str:
+        return self._path.suffix
+
+    @property
+    def exists(self) -> bool:
+        return self._path.exists()
 
     ##############################################
 

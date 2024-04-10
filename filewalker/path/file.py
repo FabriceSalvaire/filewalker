@@ -50,6 +50,8 @@ import logging
 import os
 import subprocess
 
+import xattr
+
 ####################################################################################################
 
 _module_logger = logging.getLogger(__name__)
@@ -78,8 +80,20 @@ class File:
 
     ##############################################
 
+    @classmethod
+    def decode(cls, _: bytes) -> str:
+        """decode path"""
+        try:
+            _ = _.decode('utf8')
+        except UnicodeDecodeError:
+            cls._logger.error(f"unicode error {_}")
+            _ = _.decode('latin1')
+        return _
+
+    ##############################################
+
     @staticmethod
-    def to_bytes(_: str) -> bytes:
+    def encode(_: str) -> bytes:
         return str(_).encode('utf-8')
 
     ##############################################
@@ -107,7 +121,7 @@ class File:
 
     @classmethod
     def from_path(cls, path: Path) -> 'File':
-        return cls(cls.to_bytes(path.parent), cls.to_bytes(path.name))
+        return cls(cls.encode(path.parent), cls.encode(path.name))
 
     ##############################################
 
@@ -131,12 +145,41 @@ class File:
     ##############################################
 
     @property
+    def parent(self) -> bytes:
+        return self._parent
+
+    @property
+    def name(self) -> bytes:
+        return self._name
+
+    @property
+    def stem(self) -> bytes:
+        # return self.path.stem
+        name = self._name
+        _ = name.find(b'.')
+        if _ != -1:
+            return name[:_]
+        else:
+            return name
+
+    @property
+    def suffix(self) -> bytes:
+        # return self.path.suffix
+        # Fixme: duplicated
+        name = self._name
+        _ = name.find(b'.')
+        if _ != -1:
+            return name[_:]
+        else:
+            return b''
+
+    @property
     def path_bytes(self) -> bytes:
         return os.path.join(self._parent, self._name)
 
     @property
     def path_str(self) -> str:
-        return self.path_bytes.decode('utf-8')
+        return self.decode(self.path_bytes)
 
     @property
     def path(self) -> Path:
@@ -365,3 +408,22 @@ class File:
     def write(self, data: bytes) -> None:
         with open(self.path_bytes, 'wb') as fh:
             fh.write(data)
+
+    ##############################################
+
+    USER_BALOO_RATING = 'user.baloo.rating'
+
+    @property
+    def rating(self) -> int:
+        path = self.path_bytes
+        if self.USER_BALOO_RATING in xattr.listxattr(path):
+            _ = xattr.getxattr(path, self.USER_BALOO_RATING)
+            return int(_)
+        else:
+            return -1
+
+    @rating.setter
+    def set_rating(self, rating: int) -> None:
+        path = self.path_bytes
+        _ = str(rating).encode('ascii')
+        xattr.setxattr(path, self.USER_BALOO_RATING, _)
