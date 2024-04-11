@@ -305,10 +305,24 @@ class DuplicateSet(MarkMixin):
 
     ##############################################
 
-    def sort(self, key=None, reverse: bool = False) -> None:
+    def sort(self, key=None, reverse: bool = False, sorting: str = None) -> None:
         # Fixme: sort utf-8 bytes ?
-        if key is None:
-            key = lambda duplicate: duplicate.path_bytes
+        def by_path(_):
+            return _.path_bytes
+
+        def by_name_length(_):
+            return len(_.name)
+
+        if sorting is not None:
+            match sorting:
+                case 'path':
+                    key = by_path
+                case 'name_length':
+                    key = by_name_length
+                case _:
+                    raise ValueError(f"unknow sorting '{sorting}'")
+        elif key is None:
+            key = by_path
         self._pendings.sort(key=key, reverse=reverse)
 
     ##############################################

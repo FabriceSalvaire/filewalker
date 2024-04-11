@@ -44,151 +44,134 @@ logger.info("Start ...")
 
 ####################################################################################################
 
-DRY_RUN = False
+class Cleaner:
 
-# FG_COLOR = Fore.BLACK
-FG_COLOR = Fore.WHITE
+    DRY_RUN = False
 
-####################################################################################################
+    # FG_COLOR = Fore.BLACK
+    FG_COLOR = Fore.WHITE
 
-def rprint(*args) -> None:
-    print(*args, FG_COLOR)
+    ##############################################
 
-####################################################################################################
+    def __init__(self) -> None:
+        pass
 
-def rename(file: File) -> None:
-    """Interactive rename"""
-    rprint(f"{Fore.RED}Rename: {Fore.BLUE}{file}")
-    rc = input()
-    if rc:
-        file.rename(rc, rebuild=True)
-        rprint(f"Renamed: {FG_COLOR}{rc}")
+    ##############################################
 
-####################################################################################################
+    def rprint(self, *args) -> None:
+        print(*args, FG_COLOR)
 
-def get_index(duplicates: DuplicateSet) -> Duplicate:
-    """Wait for index input
-    Return keeped path
-    """
-    while True:
-        rprint(Fore.RED + "Keep ?")
-        rc = input().lower()
-        # Skip ?
-        if not rc:
-            return None
-        # Exit ?
-        if rc == 'q':
-            exit(0)
-        try:
-            # Rename action r<int>
-            if rc.startswith('r'):
-                _ = duplicates[int(rc[1:])]
-                rename(_)
-            else:
-                return duplicates[int(rc)]
-        except (ValueError, IndexError):
-            rprint(Fore.RED + "Bad index")
+    ##############################################
 
-####################################################################################################
+    def rename(self, file: File) -> None:
+        """Interactive rename"""
+        self.rprint(f"{Fore.RED}Rename: {Fore.BLUE}{file}")
+        rc = input()
+        if rc:
+            file.rename(rc, rebuild=True)
+            self.rprint(f"Renamed: {FG_COLOR}{rc}")
 
-def cleanup(duplicates: DuplicateSet) -> None:
-    keeped = get_index(duplicates)
-    if keeped is not None:
-        keeped_rating = keeped.file.rating
-        rprint(f"{Fore.GREEN}Keep    {Fore.BLUE}{keeped}")
-        to_remove = set(duplicates) - set((keeped,))
-        # Fixme: use mark ?
-        if len(to_remove) == len(duplicates):
-            raise NameError("All files will be removed")
-        rating = keeped_rating
-        if not DRY_RUN:
-            for _ in to_remove:
-                removed = _.path
-                # rprint(f'{rating} vs {keeped_rating}')
-                rating = max(_.file.rating, rating)
-                try:
-                    #!!! removed.unlink()
-                    rprint(f"{Fore.RED}Removed {FG_COLOR}{removed}")
-                except FileNotFoundError:
-                    rprint(f"{Fore.RED}Error {FG_COLOR}{removed}")
-        if rating != keeped_rating and rating > 0:
-            rprint(f"  copy rating {Fore.RED}{rating}{FG_COLOR} was {keeped_rating}")
-            keeped.file.rating = rating
-    else:
-        rprint("skip")
+    ##############################################
 
-####################################################################################################
+    def get_index(self, duplicates: DuplicateSet) -> Duplicate:
+        """Wait for index input
+        Return keeped path
+        """
+        while True:
+            self.rprint(Fore.RED + "Keep ?")
+            rc = input().lower()
+            # Skip ?
+            if not rc:
+                return None
+            # Exit ?
+            if rc == 'q':
+                exit(0)
+            try:
+                # Rename action r<int>
+                if rc.startswith('r'):
+                    _ = duplicates[int(rc[1:])]
+                    self.rename(_)
+                else:
+                    return duplicates[int(rc)]
+            except (ValueError, IndexError):
+                self.rprint(Fore.RED + "Bad index")
 
-# class DuplicateSorter:
-#
-#     ##############################################
-#
-#     def __init__(self, duplicates: list[str]) -> None:
-#         self._duplicates = list(duplicates)
-#         names = [_.name for _ in duplicates]
-#         parents = [_.parent for _ in duplicates]
-#         uniq_parents = set(parents)
-#         self._same_parent = len(uniq_parents) == 1
-#
-#     ##############################################
-#
-#     @property
-#     def same_parent(self) -> bool:
-#         return self._same_parent
-#
-#     ##############################################
-#
-#     @property
-#     def by_name_length(self) -> list[str]:
-#         return sorted(self._duplicates, key=lambda _ : len(_.name))
+    ##############################################
 
-####################################################################################################
+    def cleanup(self, duplicates: DuplicateSet) -> None:
+        keeped = self.get_index(duplicates)
+        if keeped is not None:
+            keeped_rating = keeped.file.rating
+            self.rprint(f"{Fore.GREEN}Keep    {Fore.BLUE}{keeped}")
+            to_remove = set(duplicates) - set((keeped,))
+            # Fixme: use mark ?
+            if len(to_remove) == len(duplicates):
+                raise NameError("All files will be removed")
+            rating = keeped_rating
+            if not DRY_RUN:
+                for _ in to_remove:
+                    removed = _.path
+                    # self.rprint(f'{rating} vs {keeped_rating}')
+                    rating = max(_.file.rating, rating)
+                    try:
+                        #!!! removed.unlink()
+                        self.rprint(f"{Fore.RED}Removed {FG_COLOR}{removed}")
+                    except FileNotFoundError:
+                        self.rprint(f"{Fore.RED}Error {FG_COLOR}{removed}")
+            if rating != keeped_rating and rating > 0:
+                self.rprint(f"  copy rating {Fore.RED}{rating}{FG_COLOR} was {keeped_rating}")
+                keeped.file.rating = rating
+        else:
+            self.rprint("skip")
 
-def on_duplicate(
-    duplicates: DuplicateSet,
-    only: list[str] = None,
-) -> None:
-    """Process duplicates
-    *only* is a list of suffixes
-    """
-    if only is not None:
-        if True not in [_.suffix in only for _ in duplicates]:
-            return
-    rprint()
-    rprint(Fore.GREEN + f"Found {len(duplicates)} identical files")
-    # Fixme:
-    #   if same parent, keep shortest
-    # sorter = DuplicateSorter(duplicates)
-    if duplicates.is_same_parent:
-        rprint(f"  {Fore.RED}same parent")
-    # # duplicates gives order !
-    # duplicates = sorter.by_name_length
-    for i, _ in enumerate(duplicates):
-        BAD = False
-        if 'duplicate' in str(_.parent):
-            BAD = True
-        if _.name.endswith('~'):
-            BAD = True
-        for k in range(1, 10):
-            if _.stem.endswith(f'({k})'):
+    ##############################################
+
+    def on_duplicate(
+        self, 
+        duplicates: DuplicateSet,
+        only: list[str] = None,
+    ) -> None:
+        """Process duplicates
+        *only* is a list of suffixes
+        """
+        if only is not None:
+            if True not in [_.suffix in only for _ in duplicates]:
+                return
+        self.rprint()
+        self.rprint(Fore.GREEN + f"Found {len(duplicates)} identical files")
+        # Fixme:
+        #   if same parent, keep shortest
+        if duplicates.is_same_parent:
+            self.rprint(f"  {Fore.RED}same parent")
+        # duplicates gives order !
+        duplicates.sort(sorting='name_length')
+        for i, _ in enumerate(duplicates):
+            BAD = False
+            if 'duplicate' in str(_.parent):
                 BAD = True
-        color = FG_COLOR if BAD else Fore.BLUE
-        rprint(f"  {Fore.RED}{i} {color}{_.parent}")
-        rprint(f"      {color}{_.name} {Fore.RED}{i}")
-    cleanup(duplicates)
+            if _.name.endswith('~'):
+                BAD = True
+            for k in range(1, 10):
+                if _.stem.endswith(f'({k})'):
+                    BAD = True
+            color = FG_COLOR if BAD else Fore.BLUE
+            self.rprint(f"  {Fore.RED}{i} {color}{_.parent}")
+            self.rprint(f"      {color}{_.name} {Fore.RED}{i}")
+        self.cleanup(duplicates)
 
-####################################################################################################
+    ##############################################
 
-def scan(
-    path: Path,
-    **kwargs,
-) -> None:
-    """Run rdfind and process duplicates"""
-    rprint(Fore.RED + f"Scan directory {path} ...")
-    rdfind = Rdfind(path)
-    # for duplicate_set in rdfind.to_duplicate_pool:
-    for duplicate_set in rdfind.duplicate_set_it:
-        on_duplicate(duplicate_set, **kwargs)
+    def scan(
+        self,
+        path: Path,
+        **kwargs,
+    ) -> None:
+        """Run rdfind and process duplicates"""
+        self.rprint(Fore.RED + f"Scan directory {path} ...")
+        rdfind = Rdfind(path)
+        # for duplicate_set in rdfind.to_duplicate_pool:
+        for duplicate_set in rdfind.duplicate_set_it:
+            self.on_duplicate(duplicate_set, **kwargs)
 
 ####################################################################################################
 
@@ -238,5 +221,6 @@ def main() -> None:
     if args.only:
         only = args.only.split(',')
         print(f"only = {only}")
-    scan(path, only=only)
+    cleaner = Cleaner()
+    cleaner.scan(path, only=only)
     # logging.info("Done")
