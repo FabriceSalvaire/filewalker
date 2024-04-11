@@ -202,43 +202,63 @@ class DuplicateSet(MarkMixin):
 
     def __init__(self, files: List[File]) -> None:
         super().__init__()
-        # Check there is any duplicate file in the list
+
+        # Sanity checks
         if len(files) < 2:
             raise ValueError("Require more than one file")
         paths = [_.path_bytes for _ in files]
         self._input_paths = set(paths)
         if len(self._input_paths) != len(files):
             raise NonUniqFiles(f"Non-unique list of files: {paths}")
-        self._pendings = [Duplicate(_) for _ in files]
+
+        # immutable list of input files
+        self._files = tuple([Duplicate(_) for _ in files])
+        # files to be proceed and finally kept
+        self._pendings = list(self._files)
+        # duplicated files to be removed
         self._duplicates = []
 
     ##############################################
 
-    def __str__(self) -> str:
-        return str([str(_) for _ in self.paths])
-
-    ##############################################
-
+    # Fixme: confusing
     def __len__(self) -> int:
-        """Return number of pendings"""
-        return len(self._pendings)
+        """Return number of files"""
+        return len(self._files)
 
     @property
-    def is_singleton(self) -> bool:
-        """Return True if only one pending"""
-        return len(self._pendings) == 1
+    def number_of_files(self) -> int:
+        """Return number of files"""
+        # return len(self._input_paths)
+        return len(self._files)
+
+    @property
+    def number_of_pendings(self) -> int:
+        """Return number of pendings"""
+        return len(self._pendings)
 
     @property
     def number_of_duplicates(self) -> int:
         """Return number of duplicates"""
         return len(self._duplicates)
 
+    @property
+    def is_singleton(self) -> bool:
+        """Return True if only one pending"""
+        return len(self._pendings) == 1
+
     ##############################################
 
+    # Fixme: confusing
     def __iter__(self) -> Iterator[Duplicate]:
+        """Iterate on files"""
+        return iter(self._files)
+
+    @property
+    def pendings(self) -> Iterator[Duplicate]:
         """Iterate on pendings"""
         return iter(self._pendings)
 
+    # Fixme: confusing
     def __getitem__(self, _slice) -> Duplicate:
         """Get pendings"""
         return self._pendings[_slice]
@@ -268,22 +288,22 @@ class DuplicateSet(MarkMixin):
     @property
     def marked(self) -> List[File]:
         """Return list of marked in pendings"""
-        return [_ for _ in self if _]
+        return [_ for _ in self._pendings if _]
 
     @property
     def unmarked(self) -> List[File]:
         """Return list of unmarked in pendings"""
-        return [_ for _ in self if not _]
+        return [_ for _ in self._pendings if not _]
 
     @property
     def number_of_marked(self) -> int:
         """Count marked in pendings"""
-        return sum([1 for _ in self if _])
+        return sum([1 for _ in self._pendings if _])
 
     @property
     def number_of_unmarked(self) -> int:
         """Count unmarked in pendings"""
-        return sum([1 for _ in self if not _])
+        return sum([1 for _ in self._pendings if not _])
 
     ##############################################
 
@@ -298,6 +318,9 @@ class DuplicateSet(MarkMixin):
     @property
     def paths(self) -> List[Path]:
         return [_.path for _ in self]
+
+    def __str__(self) -> str:
+        return str([str(_) for _ in self.paths])
 
     @property
     def duplicated_paths(self) -> List[Path]:
@@ -385,6 +408,213 @@ class DuplicateSet(MarkMixin):
             raise InconsistentDuplicateSet("pendings is empty")
         pendings = [_.path_bytes for _ in self._pendings]
         duplicates = [_.path_bytes for _ in self._duplicates]
+        # compare set to avoid issue with sorting
+        paths = set(pendings) | set(duplicates)
+        # we recheck for non-unique path
+        print(paths)
+
+        # files to be proceed and finally kept
+        self._pendings = list(self._files)
+        # duplicated files to be removed
+        self._duplicates = []
+
+    ##############################################
+
+    # Fixme: confusing
+    def __len__(self) -> int:
+        """Return number of files"""
+        return len(self._files)
+
+    @property
+    def number_of_files(self) -> int:
+        """Return number of files"""
+        # return len(self._input_paths)
+        return len(self._files)
+
+    @property
+    def number_of_pendings(self) -> int:
+        """Return number of pendings"""
+        return len(self._pendings)
+
+    @property
+    def number_of_duplicates(self) -> int:
+        """Return number of duplicates"""
+        return len(self._duplicates)
+
+    @property
+    def is_singleton(self) -> bool:
+        """Return True if only one pending"""
+        return len(self._pendings) == 1
+
+    ##############################################
+
+    # Fixme: confusing
+    def __iter__(self) -> Iterator[Duplicate]:
+        """Iterate on files"""
+        return iter(self._files)
+
+    @property
+    def pendings(self) -> Iterator[Duplicate]:
+        """Iterate on pendings"""
+        return iter(self._pendings)
+
+    # Fixme: confusing
+    def __getitem__(self, _slice) -> Duplicate:
+        """Get pendings"""
+        return self._pendings[_slice]
+
+    @property
+    def first(self) -> Duplicate:
+        """Return first pending"""
+        return self._pendings[0]
+
+    @property
+    def second(self) -> Duplicate:
+        """Return second pending"""
+        return self._pendings[1]
+
+    @property
+    def followings(self) -> Iterator[Duplicate]:
+        """Iterate on pendings after first"""
+        return iter(self._pendings[1:])
+
+    @property
+    def duplicates(self) -> Iterator[Duplicate]:
+        """Iterate on duplicates"""
+        return iter(self._duplicates)
+
+    ##############################################
+
+    @property
+    def marked(self) -> List[File]:
+        """Return list of marked in pendings"""
+        return [_ for _ in self._pendings if _]
+
+    @property
+    def unmarked(self) -> List[File]:
+        """Return list of unmarked in pendings"""
+        return [_ for _ in self._pendings if not _]
+
+    @property
+    def number_of_marked(self) -> int:
+        """Count marked in pendings"""
+        return sum([1 for _ in self._pendings if _])
+
+    @property
+    def number_of_unmarked(self) -> int:
+        """Count unmarked in pendings"""
+        return sum([1 for _ in self._pendings if not _])
+
+    ##############################################
+
+    @property
+    def paths_bytes(self) -> ByteList:
+        return [_.path_bytes for _ in self]
+
+    @property
+    def paths_str(self) -> List[str]:
+        return [_.path_str for _ in self]
+
+    @property
+    def paths(self) -> List[Path]:
+        return [_.path for _ in self]
+
+    def __str__(self) -> str:
+        return str([str(_) for _ in self.paths])
+
+    @property
+    def duplicated_paths(self) -> List[Path]:
+        return [_.path for _ in self._duplicates]
+
+    ##############################################
+
+    def sort(self, key=None, reverse: bool = False, sorting: str = None) -> None:
+        # Fixme: sort utf-8 bytes ?
+        def by_path(_):
+            return _.path_bytes
+
+        def by_name_length(_):
+            return len(_.name)
+
+        if sorting is not None:
+            match sorting:
+                case 'path':
+                    key = by_path
+                case 'name_length':
+                    key = by_name_length
+                case _:
+                    raise ValueError(f"unknow sorting '{sorting}'")
+        elif key is None:
+            key = by_path
+        self._pendings.sort(key=key, reverse=reverse)
+
+    ##############################################
+
+    @property
+    def is_same_parent(self) -> bool:
+        parents = set([str(_.parent) for _ in self.paths])
+        return len(parents) == 1
+
+    @property
+    def common_parent(self) -> Path:
+        parents = [_.parent.parts for _ in self.paths]
+        parts = []
+        i = 0
+        try:
+            while True:
+                part = parents[0][i]
+                for _ in parents[1:]:
+                    if part != _[i]:
+                        raise IndexError
+                parts.append(part)
+                i += 1
+        except IndexError:
+            pass
+        return Path(*parts)
+
+    ##############################################
+
+    def commit(self) -> None:
+        """Move marked files to duplicate list"""
+        if self.number_of_marked:
+            if not self.number_of_unmarked:
+                raise AllFileMarked(f"All files are marked in duplicate set {self.paths_bytes}")
+            self._duplicates.extend(self.marked)
+            for _ in self.marked:
+                self._pendings.remove(_)
+
+    ##############################################
+
+    def rollback(self, rollback_duplicates: bool = False) -> None:
+        """
+        - if *rollback_duplicates* move duplicates in pending mist
+        - unmark pendings
+        """
+        # Fixme: API ???
+        if rollback_duplicates:
+            self._pendings += self._duplicates
+            self._duplicates = []
+        for _ in self._pendings:
+            _.unmark()
+
+    ##############################################
+
+    def check(self) -> None:
+        """Perform some sanity checks
+        - pendings is not empty
+        - any pendings in duplicates
+        - pendings + duplicates = input
+        """
+        if not self._pendings:
+            raise InconsistentDuplicateSet("pendings is empty")
+        pendings = [_.path_bytes for _ in self._pendings]
+        duplicates = [_.path_bytes for _ in self._duplicates]
+        for _ in duplicates:
+            if _ in pendings:
+                raise InconsistentDuplicateSet(f"Inconsistent duplicate set: duplicate {_} is also in pendings")
+        if (len(pendings) + len(duplicates)) != len(self._files):
+            raise InconsistentDuplicateSet(f"Inconsistent duplicate set length: {pendings} + {duplicates} != {self._input_paths}")
+        # compare set to avoid issue with sorting
         paths = set(pendings) | set(duplicates)
         if paths != self._input_paths:
             raise InconsistentDuplicateSet(f"Inconsistent duplicate set: {paths} != {self._input_paths}")

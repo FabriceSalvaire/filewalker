@@ -25,7 +25,7 @@ import unittest
 ####################################################################################################
 
 from filewalker.path.file import File
-from filewalker.cleaner.DuplicateCleaner import (
+from filewalker.cleaner.DuplicateSet import (
     DuplicateSet,
     NonUniqFiles, AllFileMarked, InconsistentDuplicateSet,
 )
@@ -44,7 +44,7 @@ class TestDuplicateSet(unittest.TestCase):
             '/foo/a',
         )
         with self.assertRaises(NonUniqFiles):
-            duplicate_set = DuplicateSet([File.from_str(_) for _ in paths])
+            dset = DuplicateSet([File.from_str(_) for _ in paths])
 
     ##############################################
 
@@ -56,59 +56,78 @@ class TestDuplicateSet(unittest.TestCase):
             '/foo/bar/b',
         )
 
-        duplicate_set = DuplicateSet([File.from_str(_) for _ in paths])
-        self.assertEqual(duplicate_set.number_of_unmarked, len(paths))
-        self.assertEqual(duplicate_set.number_of_marked, 0)
+        print()
+
+        # Initial tests
+        dset = DuplicateSet([File.from_str(_) for _ in paths])
+        self.assertEqual(dset.number_of_unmarked, len(paths))
+        self.assertEqual(dset.number_of_marked, 0)
 
         # unchanged
-        duplicate_set.commit()
-        duplicate_set.check()
+        dset.commit()
+        dset.check()
 
-        for _ in duplicate_set:
+        # Mark all files
+        for _ in dset:
             _.mark()
-        self.assertEqual(duplicate_set.number_of_unmarked, 0)
-        self.assertEqual(duplicate_set.number_of_marked, len(paths))
+        self.assertEqual(dset.number_of_unmarked, 0)
+        self.assertEqual(dset.number_of_marked, len(paths))
         with self.assertRaises(AllFileMarked):
-            duplicate_set.commit()
-        duplicate_set.check()
+            dset.commit()
+        # commit aborded
+        self.assertEqual(dset.number_of_duplicates, 0)
+        self.assertEqual(dset.number_of_pendings, dset.number_of_files)
+        dset.check()
 
-        duplicate_set.rollback()
-        self.assertEqual(duplicate_set.number_of_unmarked, len(paths))
-        self.assertEqual(duplicate_set.number_of_marked, 0)
-        duplicate_set.check()
+        # Test rollback
+        dset.rollback()
+        self.assertEqual(dset.number_of_unmarked, len(paths))
+        self.assertEqual(dset.number_of_marked, 0)
+        dset.check()
 
-        for _ in duplicate_set.followings:
+        # Mark all files excepted the first one
+        for _ in dset.followings:
             _.mark()
-        self.assertEqual(duplicate_set.number_of_unmarked, 1)
-        self.assertEqual(duplicate_set.number_of_marked, len(paths) -1)
-        duplicate_set.commit()
-        self.assertEqual(duplicate_set.number_of_marked, 0)
-        self.assertEqual(duplicate_set.number_of_duplicates, len(paths) -1)
-        duplicate_set.check()
+        self.assertEqual(dset.number_of_unmarked, 1)
+        self.assertEqual(dset.number_of_marked, len(paths) -1)
+        dset.commit()
+        self.assertEqual(dset.number_of_marked, 0)
+        self.assertEqual(dset.number_of_duplicates, len(paths) -1)
+        dset.check()
 
-        self.assertListEqual([_.path_str for _ in duplicate_set], list(paths[:1]))
-        self.assertListEqual([_.path_str for _ in duplicate_set.duplicates], list(paths[1:]))
+        self.assertListEqual([_.path_str for _ in dset.pendings], list(paths[:1]))
+        self.assertListEqual([_.path_str for _ in dset.duplicates], list(paths[1:]))
 
-        # make invalid duplicate_set
-        # alter pendings
-        obj = duplicate_set._pendings.pop()
-        with self.assertRaises(InconsistentDuplicateSet):
-            duplicate_set.check()
-        duplicate_set._pendings.append(obj)
-        # alter duplicates
-        obj = duplicate_set._duplicates.pop()
-        with self.assertRaises(InconsistentDuplicateSet):
-            duplicate_set.check()
-        duplicate_set._duplicates.append(obj)
-        # alter path
-        first = duplicate_set.first.file
+        # make invalid dset
+        # alter pendings (pop)
+        obj = dset._pendings.pop()
+        with self.assertRaises(InconsistentDuplicateSet) as cm:
+            dset.check()
+        print(cm.exception)
+        dset._pendings.append(obj)
+        # alter duplicates (pop)
+        obj = dset._duplicates.pop()
+        with self.assertRaises(InconsistentDuplicateSet) as cm:
+            dset.check()
+        print(cm.exception)
+        dset._duplicates.append(obj)
+        # alter duplicates (add pendings)
+        duplicates = list(dset._duplicates)
+        dset._duplicates += dset.pendings
+        with self.assertRaises(InconsistentDuplicateSet) as cm:
+            dset.check()
+        print(cm.exception)
+        dset._duplicates = duplicates
+        # alter path of first
+        first = dset.first.file
         name = first._name
         first._name = b'...'
-        with self.assertRaises(InconsistentDuplicateSet):
-            duplicate_set.check()
+        with self.assertRaises(InconsistentDuplicateSet) as cm:
+            dset.check()
+        print(cm.exception)
         first._name = name
-        duplicate_set.check()
-        duplicate_set = None
+        # recheck restored
+        dset.check()
 
     ##############################################
 

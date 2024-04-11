@@ -106,7 +106,7 @@ class Cleaner:
 
     ##############################################
 
-    def get_index(self, duplicates: DuplicateSet) -> Duplicate:
+    def get_index(self, dset: DuplicateSet) -> Duplicate:
         """Wait for index input
         Return keeped path
         """
@@ -122,41 +122,67 @@ class Cleaner:
             try:
                 # Rename action r<int>
                 if rc.startswith('r'):
-                    _ = duplicates[int(rc[1:])]
+                    _ = dset[int(rc[1:])]
                     self.rename(_)
                 else:
-                    return duplicates[int(rc)]
+                    return dset[int(rc)]
             except (ValueError, IndexError):
                 self.rprint(Fore.RED + "Bad index")
 
     ##############################################
 
-    def cleanup(self, duplicates: DuplicateSet) -> None:
-        keeped = self.get_index(duplicates)
-        if keeped is not None:
-            keeped_rating = keeped.file.rating
-            self.log(f"keeped    {keeped.path} *{keeped_rating}")
-            self.rprint(f"{Fore.GREEN}Keep    {Fore.BLUE}{keeped}")
-            to_remove = set(duplicates) - set((keeped,))
-            # Fixme: use mark ?
-            if len(to_remove) == len(duplicates):
-                raise NameError("All files will be removed")
-            rating = keeped_rating
+    def cleanup(
+        self,
+        dset: DuplicateSet,
+    ) -> None:
+        # keeped = dset.first
+        keeped = dset.unmarked
+
+        # Sanity checks
+        if len(keeped) > 1:
+            raise NameError(f"More than one keeped files {keeped}")
+        dset.check()
+        # dset.check_is_duplicate()
+        keeped = keeped.pop()
+        to_remove = set(dset) - set((keeped,))
+        if len(to_remove) == dset.number_of_files:
+            raise NameError("All files will be removed")
+
+        keeped_rating = keeped.file.rating
+        self.log(f"keeped    {keeped.path} *{keeped_rating}")
+        self.rprint(f"{Fore.GREEN}Keep    {Fore.BLUE}{keeped}")
+        rating = keeped_rating
+
+        for _ in dset.duplicates:
+            removed = _.path
+            # self.rprint(f'{rating} vs {keeped_rating}')
+            removed_rating = _.file.rating
+            rating = max(removed_rating, rating)
+            # try:
+            self.log(f"  removed {removed} *{removed_rating}")
+            self.rprint(f"{Fore.RED}Removed {FG_COLOR}{removed}")
+            # except FileNotFoundError:
+            #     self.rprint(f"{Fore.RED}Error {FG_COLOR}{removed}")
+        if not DRY_RUN:
+            dset.delete_duplicates(dry_run=DRY_RUN)
+        if rating != keeped_rating and rating > 0:
+            self.rprint(f"  copy rating {Fore.RED}{rating}{FG_COLOR} was {keeped_rating}")
             if not DRY_RUN:
-                for _ in to_remove:
-                    removed = _.path
-                    # self.rprint(f'{rating} vs {keeped_rating}')
-                    removed_rating = _.file.rating
-                    rating = max(removed_rating, rating)
-                    try:
-                        self.log(f"  removed {removed} *{removed_rating}")
-                        #!!! removed.unlink()
-                        self.rprint(f"{Fore.RED}Removed {FG_COLOR}{removed}")
-                    except FileNotFoundError:
-                        self.rprint(f"{Fore.RED}Error {FG_COLOR}{removed}")
-            if rating != keeped_rating and rating > 0:
-                self.rprint(f"  copy rating {Fore.RED}{rating}{FG_COLOR} was {keeped_rating}")
                 keeped.file.rating = rating
+
+    ##############################################
+
+    def interactive_cleanup(
+        self,
+        dset: DuplicateSet,
+    ) -> None:
+        keeped = self.get_index(dset)
+        if keeped is not None:
+            for _ in dset:
+                if _ is not keeped:
+                    _.mark()
+            dset.commit()
+            self.cleanup(dset)
         else:
             self.rprint("skip")
 
@@ -164,24 +190,26 @@ class Cleaner:
 
     def on_duplicate(
         self,
-        duplicates: DuplicateSet,
+        dset: DuplicateSet,
         only: list[str] = None,
+        same_parent: bool = False,
+        **kwargs,
     ) -> None:
         """Process duplicates
         *only* is a list of suffixes
         """
         if only is not None:
-            if True not in [_.suffix in only for _ in duplicates]:
+            if True not in [_.suffix in only for _ in dset]:
                 return
         self.rprint()
-        self.rprint(Fore.GREEN + f"Found {len(duplicates)} identical files")
-        # Fixme:
-        #   if same parent, keep shortest
-        if duplicates.is_same_parent:
+        self.rprint(Fore.GREEN + f"Found {len(dset)} identical files")
+        if dset.is_same_parent:
             self.rprint(f"  {Fore.RED}same parent")
-        # duplicates gives order !
-        duplicates.sort(sorting='name_length')
-        for i, _ in enumerate(duplicates):
+            dset.sort(sorting='name_length')
+        else:
+            # Fixme: ...
+            dset.sort(sorting='name_length')
+        for i, _ in enumerate(dset):
             BAD = False
             if 'duplicate' in str(_.parent):
                 BAD = True
@@ -193,7 +221,7 @@ class Cleaner:
             color = FG_COLOR if BAD else Fore.BLUE
             self.rprint(f"  {Fore.RED}{i} {color}{_.parent}")
             self.rprint(f"      {color}{_.name} {Fore.RED}{i}")
-        self.cleanup(duplicates)
+        self.interactive_cleanup(dset, **kwargs)
 
     ##############################################
 
@@ -244,6 +272,12 @@ def main() -> None:
         default=None,
         help="a list of suffixes separated by a comma to only process for duplicates",
     )
+    parser.add_argument(
+        '--same-parent',
+        default=False,
+        action='store_true',
+        help="automatically remove duplicates if they lie in the same directory (keep shortest)",
+    )
     args = parser.parse_args()
 
     if args.white:
@@ -260,5 +294,5 @@ def main() -> None:
         only = args.only.split(',')
         print(f"only = {only}")
     cleaner = Cleaner()
-    cleaner.scan(path, only=only)
+    cleaner.scan(path, only=only, same_parent=args.same_parent)
     # logging.info("Done")
