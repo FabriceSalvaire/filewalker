@@ -253,15 +253,15 @@ class DuplicateSet(MarkMixin):
         """Iterate on files"""
         return iter(self._files)
 
+    # Fixme: confusing
+    def __getitem__(self, _slice) -> Duplicate:
+        """Get file"""
+        return self._files[_slice]
+
     @property
     def pendings(self) -> Iterator[Duplicate]:
         """Iterate on pendings"""
         return iter(self._pendings)
-
-    # Fixme: confusing
-    def __getitem__(self, _slice) -> Duplicate:
-        """Get pendings"""
-        return self._pendings[_slice]
 
     @property
     def first(self) -> Duplicate:

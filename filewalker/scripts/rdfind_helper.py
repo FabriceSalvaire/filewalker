@@ -41,7 +41,7 @@ from filewalker.interface.rdfind import Rdfind
 
 colorama.init()   # autoreset=True
 
-logger = setup_logging(level=logging.DEBUG)
+logger = setup_logging(level=logging.WARNING)
 logger.info("Start ...")
 
 ####################################################################################################
@@ -188,6 +188,49 @@ class Cleaner:
 
     ##############################################
 
+    def print_intro(
+        self,
+        dset: DuplicateSet,
+    ) -> None:
+        self.rprint()
+        self.rprint(Fore.GREEN + '\u2500'*50)
+        self.rprint(Fore.GREEN + f"Found {len(dset)} identical files")
+
+    ##############################################
+
+    def print_duplicates(
+        self,
+        dset: DuplicateSet,
+    ) -> None:
+        for i, _ in enumerate(dset):
+            BAD = False
+            if 'duplicate' in str(_.parent):
+                BAD = True
+            if _.name.endswith('~'):
+                BAD = True
+            for k in range(1, 10):
+                if _.stem.endswith(f'({k})'):
+                    BAD = True
+            color = FG_COLOR if BAD else Fore.BLUE
+            self.rprint(f"  {Fore.RED}{i} {color}{_.parent}")
+            self.rprint(f"      {color}{_.name} {Fore.RED}{i}")
+
+    ##############################################
+
+    def on_same_parent(
+        self,
+        dset: DuplicateSet,
+        **kwargs,
+    ) -> None:
+        self.rprint(f"  {Fore.RED}same parent")
+        dset.sort(sorting='name_length')
+        for _ in dset.followings:
+            _.mark()
+        dset.commit()
+        self.cleanup(dset, **kwargs)
+
+    ##############################################
+
     def on_duplicate(
         self,
         dset: DuplicateSet,
@@ -201,27 +244,16 @@ class Cleaner:
         if only is not None:
             if True not in [_.suffix in only for _ in dset]:
                 return
-        self.rprint()
-        self.rprint(Fore.GREEN + f"Found {len(dset)} identical files")
-        if dset.is_same_parent:
-            self.rprint(f"  {Fore.RED}same parent")
-            dset.sort(sorting='name_length')
+        if same_parent:
+            if dset.is_same_parent:
+                self.print_intro(dset)
+                self.on_same_parent(dset)
         else:
+            self.print_intro(dset)
             # Fixme: ...
             dset.sort(sorting='name_length')
-        for i, _ in enumerate(dset):
-            BAD = False
-            if 'duplicate' in str(_.parent):
-                BAD = True
-            if _.name.endswith('~'):
-                BAD = True
-            for k in range(1, 10):
-                if _.stem.endswith(f'({k})'):
-                    BAD = True
-            color = FG_COLOR if BAD else Fore.BLUE
-            self.rprint(f"  {Fore.RED}{i} {color}{_.parent}")
-            self.rprint(f"      {color}{_.name} {Fore.RED}{i}")
-        self.interactive_cleanup(dset, **kwargs)
+            self.print_duplicates(dset)
+            self.interactive_cleanup(dset, **kwargs)
 
     ##############################################
 
