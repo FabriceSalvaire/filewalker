@@ -18,7 +18,7 @@
 #
 ####################################################################################################
 
-__all__ = ['DuplicateCleaner']
+__all__ = ['DuplicateFinder']
 
 ####################################################################################################
 
@@ -37,7 +37,7 @@ _module_logger = logging.getLogger(__name__)
 
 ####################################################################################################
 
-class DuplicateCleaner(WalkerAbc):
+class DuplicateFinder(WalkerAbc):
 
     """
     Find duplicate
@@ -50,7 +50,7 @@ class DuplicateCleaner(WalkerAbc):
     - eliminate candidates based on sha1
     """
 
-    _logger = _module_logger.getChild("DuplicateCleaner")
+    _logger = _module_logger.getChild('DuplicateFinder')
 
     ##############################################
 
@@ -62,46 +62,46 @@ class DuplicateCleaner(WalkerAbc):
             path: Union[AnyStr, Path],
             fast_io: bool = False,
     ) -> Type['Cleaner']:
-        walker = cls(path)
-        print(f'Now scanning "{walker.path}"')
-        walker.run(top_down=False, sort=False, follow_links=False)
+        obj = cls(path)
+        print(f'Now scanning "{obj.path}"')
+        obj.run(top_down=False, sort=False, follow_links=False)
 
-        walker.make_size_map()
+        obj.make_size_map()
 
         #! p = ""
-        #! print("Check: ", walker.has_path(p))
+        #! print("Check: ", obj.has_path(p))
 
-        old_file_count = walker.count()
+        old_file_count = obj.count()
         print(f"Now have {old_file_count} files in total.")
         # Total size is xxx bytes or xxx GiB
 
         def report(old_file_count):
-            file_count = walker.count()
+            file_count = obj.count()
             print(f"removed {old_file_count - file_count} files from list. {file_count} files left.")
             return file_count
 
-        walker.remove_unique_size()
-        file_count = walker.count()
+        obj.remove_unique_size()
+        file_count = obj.count()
         print(f"Removed {old_file_count - file_count} files due to unique sizes from list. {file_count} files left.")
         old_file_count = file_count
 
         # Fixme: ok ??? same size, same first bytes but followings...
         print("Now eliminating candidates based on first bytes:")
-        walker.remove_different_first_byte(fast_io)
+        obj.remove_different_first_byte(fast_io)
         old_file_count = report(old_file_count)
 
         print("Now eliminating candidates based on last bytes:")
-        walker.remove_different_last_byte(fast_io)
+        obj.remove_different_last_byte(fast_io)
         old_file_count = report(old_file_count)
 
         print("Now eliminating candidates based on sha1 checksum:")
-        walker.remove_different_sha(fast_io)
+        obj.remove_different_sha(fast_io)
         old_file_count = report(old_file_count)
 
         print(f"It seems like you have {old_file_count} files that are not unique")
         # Totally, 822 MiB can be reduced.
 
-        return walker
+        return obj
 
     ##############################################
 
@@ -111,8 +111,8 @@ class DuplicateCleaner(WalkerAbc):
             path: Union[AnyStr, Path],
             fast_io: bool = False,
     ) -> DuplicatePool:
-        walker = cls.find_duplicate(path, fast_io)
-        return DuplicatePool(it=walker.duplicate_iter())
+        obj = cls.find_duplicate(path, fast_io)
+        return DuplicatePool(it=obj.duplicate_iter())
 
     ##############################################
 

@@ -32,6 +32,7 @@ import os
 from colorama import Fore
 import colorama
 
+from filewalker.cleaner.DuplicateFinder import DuplicateFinder
 from filewalker.cleaner.DuplicateSet import DuplicateSet, Duplicate
 from filewalker.common.logging import setup_logging
 from filewalker.path.file import File
@@ -276,15 +277,21 @@ class Cleaner:
     def scan(
         self,
         path: Path,
+        use_rdfind: bool = False,
         **kwargs,
     ) -> None:
         """Run rdfind and process duplicates"""
         self._reset(path)
         self.rprint(Fore.RED + f"Scan directory {path} ...")
-        rdfind = Rdfind(path)
+        if use_rdfind:
+            rdfind = Rdfind(path)
+            it = rdfind.duplicate_set_it
+            # it = rdfind.to_duplicate_pool
+        else:
+            pool = DuplicateFinder.find_duplicate_set(path)
+            it = pool
         removed_counter = 0
-        # for duplicate_set in rdfind.to_duplicate_pool:
-        for dset in rdfind.duplicate_set_it:
+        for dset in it:
             _ = DuplicateCleaner(self, dset)
             removed_counter += _.process(**kwargs)
         self.rprint()
@@ -337,6 +344,12 @@ def main() -> None:
         action='store_true',
         help="",
     )
+    parser.add_argument(
+        '--no-rdfind',
+        default=False,
+        action='store_true',
+        help="",
+    )
     args = parser.parse_args()
 
     if args.white:
@@ -353,5 +366,5 @@ def main() -> None:
         only = args.only.split(',')
         print(f"only = {only}")
     cleaner = Cleaner(no_log=args.no_log)
-    cleaner.scan(path, only=only, same_parent=args.same_parent)
+    cleaner.scan(path, only=only, same_parent=args.same_parent, use_rdfind=not args.no_rdfind)
     # logging.info("Done")

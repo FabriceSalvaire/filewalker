@@ -24,25 +24,30 @@ from pathlib import Path
 import json
 import string
 
+from filewalker.interface import Rdfind
+from filewalker.cleaner.DuplicateSet import DuplicatePool
+from filewalker.cleaner.DuplicateFinder import DuplicateFinder
+
 from filewalker.common.logging import setup_logging
 logger = setup_logging()
 logger.info("Start ...")
 
-from filewalker.interface import rdfind
-from filewalker.cleaner.DuplicateCleaner import DuplicateCleaner, DuplicatePool
+####################################################################################################
+
+def find_duplicate(path, json_path, use_rdfind: bool = False):
+    if use_rdfind:
+        rdfind = Rdfind(path)
+        pool = rdfind.duplicate_pool
+    else:
+        pool = DuplicateFinder.find_duplicate_set(path)
+    pool.write_json(json_path)
 
 ####################################################################################################
 
-def find_duplicate(path, json_pool_path):
-    pool = DuplicateCleaner.find_duplicate_set(path)
-    pool.write_json(json_pool_path)
-
-####################################################################################################
-
-def compare_duplicate_with_rdfind(json_pool_path, results_path):
-    pool = DuplicatePool.new_from_json(json_pool_path)
-    pool_ref = rdfind.load_to_duplicate_pool(results_path)
-    print(pool == pool_ref)
+def compare_duplicate_with_rdfind(json_path1, json_path2):
+    pool1 = DuplicatePool.new_from_json(json_path1)
+    pool2 = DuplicatePool.new_from_json(json_path2)
+    print(pool1 == pool2)
     # print(pool.compare(pool_ref))
 
 ####################################################################################################

@@ -44,7 +44,7 @@ import subprocess
 import tempfile
 
 from filewalker.common.string import find_nth
-from filewalker.cleaner.DuplicateCleaner import DuplicatePool, DuplicateSet, DuplicateSetIt
+from filewalker.cleaner.DuplicateSet import DuplicatePool, DuplicateSet, DuplicateSetIt
 
 ####################################################################################################
 
