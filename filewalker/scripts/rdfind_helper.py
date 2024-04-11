@@ -24,6 +24,7 @@
 
 from datetime import datetime
 from pathlib import Path
+from typing import Optional
 import argparse
 import logging
 import os
@@ -42,10 +43,9 @@ from filewalker.interface.rdfind import Rdfind
 
 colorama.init()   # autoreset=True
 
-logger = setup_logging(level=logging.WARNING)
-logger.info("Start ...")
-
 ####################################################################################################
+
+logger = None
 
 DRY_RUN = False
 
@@ -85,7 +85,10 @@ class DuplicateCleaner:
 
     ##############################################
 
-    def cleanup(self) -> None:
+    def cleanup(
+        self,
+        move: Optional[str] = None,
+    ) -> None:
         # keeped = self._dset.first
         keeped = self._dset.unmarked
 
@@ -93,7 +96,7 @@ class DuplicateCleaner:
         if len(keeped) > 1:
             raise NameError(f"More than one keeped files {keeped}")
         self._dset.check()
-        # self._dset.check_is_duplicate()
+        self._dset.check_is_duplicate()
         keeped = keeped.pop()
         to_remove = set(self._dset) - set((keeped,))
         if len(to_remove) == self._dset.number_of_files:
@@ -116,7 +119,10 @@ class DuplicateCleaner:
             #     self.rprint(f"{Fore.RED}Error {FG_COLOR}{removed}")
             self._removed_counter += 1
         if not DRY_RUN:
-            self._dset.delete_duplicates(dry_run=DRY_RUN)
+            if move:
+                self._dset.move_duplicates(move, dry_run=DRY_RUN)
+            else:
+                self._dset.delete_duplicates(dry_run=DRY_RUN)
         if rating != keeped_rating and rating > 0:
             self.rprint(f"  copy rating {Fore.RED}{rating}{FG_COLOR} was {keeped_rating}")
             if not DRY_RUN:
@@ -184,7 +190,7 @@ class DuplicateCleaner:
 
     ##############################################
 
-    def interactive_cleanup(self) -> None:
+    def interactive_cleanup(self, **kwargs) -> None:
         self.print_intro()
         reverse = False
         if self._dset.is_same_parent:
@@ -200,7 +206,7 @@ class DuplicateCleaner:
                 if _ is not keeped:
                     _.mark()
             self._dset.commit()
-            self.cleanup()
+            self.cleanup(**kwargs)
         else:
             self.rprint("skip")
 
@@ -220,7 +226,7 @@ class DuplicateCleaner:
                 return 0
         if same_parent:
             if self._dset.is_same_parent:
-                self.on_same_parent()
+                self.on_same_parent(**kwargs)
         else:
             self.interactive_cleanup(**kwargs)
         return self._removed_counter
@@ -350,21 +356,39 @@ def main() -> None:
         action='store_true',
         help="",
     )
+    parser.add_argument(
+        '--move',
+        default=None,
+        help="Move to directory",
+    )
     args = parser.parse_args()
+
+    level = logging.WARNING
+    # level = logging.DEBUG
+    logger = setup_logging(level=level)
+    logger.info("Start ...")
 
     if args.white:
         global FG_COLOR
         FG_COLOR = Fore.WHITE
+
     if args.dry_run:
         global DRY_RUN
         DRY_RUN = True
         print(f"Set to dry run")
-    # logging.info("Start...")
-    path = Path(args.path).resolve()
+
     only = None
     if args.only:
         only = args.only.split(',')
         print(f"only = {only}")
+
+    path = Path(args.path).resolve()
+
     cleaner = Cleaner(no_log=args.no_log)
-    cleaner.scan(path, only=only, same_parent=args.same_parent, use_rdfind=not args.no_rdfind)
-    # logging.info("Done")
+    cleaner.scan(
+        path,
+        only=only,
+        same_parent=args.same_parent,
+        use_rdfind=not args.no_rdfind,
+        move=args.move,
+    )

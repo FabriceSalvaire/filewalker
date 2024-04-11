@@ -172,6 +172,16 @@ class Duplicate(MarkMixin):
         #     self.path.unlink()
         #     self.path.symlink_to(to.path)
 
+    ##############################################
+
+    def move_to(self, path: Path, dry_run: bool = False, ) -> None:
+        new_path = path.joinpath(self.name)
+        self._logger.info(f"move file {self.path} to {new_path}")
+        # Fixme: DISABLED
+        # if not dry_run:
+        #     self.path.unlink()
+        #     self.path.symlink_to(to.path)
+
 ####################################################################################################
 
 class NonUniqFiles(ValueError):
@@ -651,6 +661,16 @@ class DuplicateSet(MarkMixin):
         self.check()
         for _ in self._duplicates:
             _.delete(dry_run)
+
+    ##############################################
+
+    def move_duplicates(self, path: Path | str, dry_run: bool = False) -> None:
+        self.check()
+        path = Path(path).resolve()
+        if not dry_run:
+            path.mkdir(exist_ok=True)
+        for _ in self._duplicates:
+            _.move_to(path, dry_run)
 
 
 type DuplicateSetIt = Iterator[DuplicateSet]

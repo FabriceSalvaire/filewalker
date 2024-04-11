@@ -390,6 +390,7 @@ class File:
             new_dst = self._find_rename_alternative(dst, pattern)
             self._logger.warning(f"{dst} exists, rename {self.path} to {new_dst}")
             dst = new_dst
+        # Danger
         self.path.rename(dst)
         if rebuild:
             return self.from_path(dst)
@@ -423,7 +424,7 @@ class File:
             return -1
 
     @rating.setter
-    def set_rating(self, rating: int) -> None:
+    def rating(self, rating: int) -> None:
         path = self.path_bytes
         _ = str(rating).encode('ascii')
         xattr.setxattr(path, self.USER_BALOO_RATING, _)
