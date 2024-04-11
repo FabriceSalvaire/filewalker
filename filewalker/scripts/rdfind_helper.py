@@ -22,9 +22,11 @@
 
 ####################################################################################################
 
+from datetime import datetime
 from pathlib import Path
 import argparse
 import logging
+import os
 # from pprint import pprint
 
 from colorama import Fore
@@ -44,17 +46,48 @@ logger.info("Start ...")
 
 ####################################################################################################
 
+DRY_RUN = False
+
+# FG_COLOR = Fore.BLACK
+FG_COLOR = Fore.WHITE
+
 class Cleaner:
-
-    DRY_RUN = False
-
-    # FG_COLOR = Fore.BLACK
-    FG_COLOR = Fore.WHITE
 
     ##############################################
 
     def __init__(self) -> None:
-        pass
+        # self._reset()
+        self._path = None
+        self._log = None
+
+    ##############################################
+
+    def _reset(self, path: str) -> None:
+        self._path = path
+        self._log = None
+
+    ##############################################
+
+    def open_log(self) -> None:
+        if self._log is None:
+            suffix = datetime.now().isoformat().replace(':', '-').replace('.', '_')
+            log_path = Path(self._path).joinpath(f'cleaner-log-{suffix}.txt')
+            if log_path.exists():
+                raise NameError(f"log file {log_path} exists")
+            self._log = open(log_path, 'w', encoding='utf8')
+
+    ##############################################
+
+    def close_log(self) -> None:
+        if self._log is not None:
+            self._log.close()
+
+    ##############################################
+
+    def log(self, message: str) -> None:
+        self.open_log()
+        self._log.write(message + os.linesep)
+        self._log.flush()
 
     ##############################################
 
@@ -102,6 +135,7 @@ class Cleaner:
         keeped = self.get_index(duplicates)
         if keeped is not None:
             keeped_rating = keeped.file.rating
+            self.log(f"keeped    {keeped.path} *{keeped_rating}")
             self.rprint(f"{Fore.GREEN}Keep    {Fore.BLUE}{keeped}")
             to_remove = set(duplicates) - set((keeped,))
             # Fixme: use mark ?
@@ -112,8 +146,10 @@ class Cleaner:
                 for _ in to_remove:
                     removed = _.path
                     # self.rprint(f'{rating} vs {keeped_rating}')
-                    rating = max(_.file.rating, rating)
+                    removed_rating = _.file.rating
+                    rating = max(removed_rating, rating)
                     try:
+                        self.log(f"  removed {removed} *{removed_rating}")
                         #!!! removed.unlink()
                         self.rprint(f"{Fore.RED}Removed {FG_COLOR}{removed}")
                     except FileNotFoundError:
@@ -127,7 +163,7 @@ class Cleaner:
     ##############################################
 
     def on_duplicate(
-        self, 
+        self,
         duplicates: DuplicateSet,
         only: list[str] = None,
     ) -> None:
@@ -167,11 +203,13 @@ class Cleaner:
         **kwargs,
     ) -> None:
         """Run rdfind and process duplicates"""
+        self._reset(path)
         self.rprint(Fore.RED + f"Scan directory {path} ...")
         rdfind = Rdfind(path)
         # for duplicate_set in rdfind.to_duplicate_pool:
         for duplicate_set in rdfind.duplicate_set_it:
             self.on_duplicate(duplicate_set, **kwargs)
+        self.close_log()
 
 ####################################################################################################
 
