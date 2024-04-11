@@ -352,8 +352,10 @@ class DuplicateSet(MarkMixin):
 
     @property
     def is_same_parent(self) -> bool:
-        parents = set([str(_.parent) for _ in self.paths])
-        return len(parents) == 1
+        if not hasattr(self, '_is_same_parent'):
+            parents = set([str(_.parent) for _ in self.paths])
+            self._is_same_parent = len(parents) == 1
+        return self._is_same_parent
 
     @property
     def common_parent(self) -> Path:
@@ -528,20 +530,34 @@ class DuplicateSet(MarkMixin):
 
     ##############################################
 
-    def sort(self, key=None, reverse: bool = False, sorting: str = None) -> None:
+    def sort(self, sorting: str = None, key=None, reverse: bool = False) -> None:
         # Fixme: sort utf-8 bytes ?
         def by_path(_):
-            return _.path_bytes
+            return _.path_str
+
+        def by_path_length(_):
+            return len(_.path_str)
 
         def by_name_length(_):
             return len(_.name)
+
+        def by_parent_length(_):
+            n = by_name_length(_)
+            SCALE = 1000
+            if n > SCALE:
+                raise NameError(f"Name length {_} > {SCALE}")
+            return len(str(_.parent)) * SCALE + n
 
         if sorting is not None:
             match sorting:
                 case 'path':
                     key = by_path
+                case 'path_length':
+                    key = by_path_length
                 case 'name_length':
                     key = by_name_length
+                case 'parent_length':
+                    key = by_parent_length
                 case _:
                     raise ValueError(f"unknow sorting '{sorting}'")
         elif key is None:
