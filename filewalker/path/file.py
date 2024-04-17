@@ -41,6 +41,8 @@ Example::
 
 __all__ = ['File']
 
+DANGEROUS = True
+
 ####################################################################################################
 
 from pathlib import Path
@@ -55,6 +57,8 @@ import xattr
 ####################################################################################################
 
 _module_logger = logging.getLogger(__name__)
+
+LINESEP = os.linesep
 
 ####################################################################################################
 
@@ -377,6 +381,14 @@ class File:
 
     ##############################################
 
+    def delete(self) -> None:
+        self._logger.info(f"delete{LINESEP}{self.path}")
+        # Danger !
+        # if DANGEROUS:
+        #!!! self.path.unlink()
+
+    ##############################################
+
     def rename(self, dst: Path | str,
                pattern: str = "{stem} ({i}){suffix}",
                rebuild: bool = False
@@ -390,8 +402,13 @@ class File:
             new_dst = self._find_rename_alternative(dst, pattern)
             self._logger.warning(f"{dst} exists, rename {self.path} to {new_dst}")
             dst = new_dst
-        # Danger
-        self.path.rename(dst)
+        # recheck
+        if dst.exists():
+            raise NameError(f"Internal Error: {dst} exists")
+        self._logger.info(f"rename{LINESEP}{self.path_str}{LINESEP}  ->{LINESEP}{dst}")
+        # Danger !
+        if DANGEROUS:
+            self.path.rename(dst)
         if rebuild:
             return self.from_path(dst)
         else:
@@ -401,7 +418,7 @@ class File:
 
     def move_to(self, dst: Path | str) -> None:
         dst_path = Path(dst) / self.path.name
-        self._logger.info(f"move {self.path_str} -> {dst_path}")
+        self._logger.info(f"move{LINESEP}{self.path_str}{LINESEP}  ->{LINESEP}{dst_path}")
         self.rename(dst_path)
 
     ##############################################

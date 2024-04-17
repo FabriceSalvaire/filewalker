@@ -62,6 +62,7 @@ class DuplicateCleaner:
         self._cleaner = cleaner
         self._dset = dset
         self._removed_counter = 0
+        self._removed_size = 0
 
     ##############################################
 
@@ -87,7 +88,7 @@ class DuplicateCleaner:
 
     def cleanup(
         self,
-        move: Optional[str] = None,
+        move: Optional[Path] = None,
     ) -> None:
         # keeped = self._dset.first
         keeped = self._dset.unmarked
@@ -118,9 +119,10 @@ class DuplicateCleaner:
             # except FileNotFoundError:
             #     self.rprint(f"{Fore.RED}Error {FG_COLOR}{removed}")
             self._removed_counter += 1
+            self._removed_size += _.file.allocated_size
         if not DRY_RUN:
             if move:
-                self._dset.move_duplicates(move, dry_run=DRY_RUN)
+                self._dset.move_duplicates(move, hierarchical=True, dry_run=DRY_RUN)
             else:
                 self._dset.delete_duplicates(dry_run=DRY_RUN)
         if rating != keeped_rating and rating > 0:
@@ -229,7 +231,7 @@ class DuplicateCleaner:
                 self.on_same_parent(**kwargs)
         else:
             self.interactive_cleanup(**kwargs)
-        return self._removed_counter
+        return self._removed_counter, self._removed_size
 
 ####################################################################################################
 
@@ -254,10 +256,13 @@ class Cleaner:
     def open_log(self) -> None:
         if self._log is None:
             suffix = datetime.now().isoformat().replace(':', '-').replace('.', '_')
-            log_path = Path(self._path).joinpath(f'cleaner-log-{suffix}.txt')
+            # log_dir = Path(self._path)
+            log_dir = Path('.')
+            log_path = log_dir.joinpath(f'cleaner-log-{suffix}.txt')
             if log_path.exists():
                 raise NameError(f"log file {log_path} exists")
             self._log = open(log_path, 'w', encoding='utf8')
+            self._log.write(f"Path {self._path}" + os.linesep)
 
     ##############################################
 
@@ -297,12 +302,16 @@ class Cleaner:
             pool = DuplicateFinder.find_duplicate_set(path)
             it = pool
         removed_counter = 0
+        removed_size = 0
         for dset in it:
             _ = DuplicateCleaner(self, dset)
-            removed_counter += _.process(**kwargs)
+            c, s = _.process(**kwargs)
+            removed_counter += c
+            removed_size += s
         self.rprint()
         self.rprint(Fore.RED + '\u2500'*50)
-        self.rprint(Fore.RED + f"Removed {removed_counter} files")
+        removed_size = int(round(removed_size / 1024**2))
+        self.rprint(Fore.RED + f"Removed {removed_counter} files {removed_size} MB")
         self.close_log()
 
 ####################################################################################################
@@ -356,17 +365,26 @@ def main() -> None:
         action='store_true',
         help="",
     )
+    # backup-dir aka rsync
     parser.add_argument(
         '--move',
         default=None,
         help="Move to directory",
     )
+    parser.add_argument(
+        '--verbose',
+        default=False,
+        action='store_true',
+        help="",
+    )
     args = parser.parse_args()
 
-    level = logging.WARNING
-    # level = logging.DEBUG
+    if args.verbose:
+        level = logging.DEBUG
+    else:
+        level = logging.WARNING
     logger = setup_logging(level=level)
-    logger.info("Start ...")
+    # logger.info("Start ...")
 
     if args.white:
         global FG_COLOR
@@ -383,6 +401,7 @@ def main() -> None:
         print(f"only = {only}")
 
     path = Path(args.path).resolve()
+    move = Path(args.move).resolve() if args.move else None
 
     cleaner = Cleaner(no_log=args.no_log)
     cleaner.scan(
@@ -390,5 +409,5 @@ def main() -> None:
         only=only,
         same_parent=args.same_parent,
         use_rdfind=not args.no_rdfind,
-        move=args.move,
+        move=move,
     )

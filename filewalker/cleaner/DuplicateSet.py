@@ -149,10 +149,12 @@ class Duplicate(MarkMixin):
     ##############################################
 
     def delete(self, dry_run: bool = False) -> None:
-        self._logger.info(f"Delete file {self.path}")
+        pass
+        # self._logger.info(f"Delete file{LINESEP}{self.path}")   # done supra
         # Fixme: DISABLED
         # if not dry_run:
-        #     self.path.unlink()
+        #     # Danger !
+        #     self.file.delete()
 
     ##############################################
 
@@ -160,12 +162,13 @@ class Duplicate(MarkMixin):
         self._logger.info(f"link file {self.path} to {to.path}")
         # Fixme: DISABLED
         # if not dry_run:
+        # Danger !
         #     self.path.unlink()
         #     self.path.link_to(to.path)
 
     ##############################################
 
-    def symlink_to(self, to: 'Duplicate', dry_run: bool = False, ) -> None:
+    def symlink_to(self, to: 'Duplicate', dry_run: bool = False) -> None:
         self._logger.info(f"link file {self.path} to {to.path}")
         # Fixme: DISABLED
         # if not dry_run:
@@ -174,13 +177,19 @@ class Duplicate(MarkMixin):
 
     ##############################################
 
-    def move_to(self, path: Path, dry_run: bool = False, ) -> None:
-        new_path = path.joinpath(self.name)
-        self._logger.info(f"move file {self.path} to {new_path}")
-        # Fixme: DISABLED
-        # if not dry_run:
-        #     self.path.unlink()
-        #     self.path.symlink_to(to.path)
+    def move_to(self, path: Path, hierarchical: bool = False, dry_run: bool = False) -> None:
+        new_path = None
+        if hierarchical:
+            common = Path(os.path.commonpath((path, self.parent)))
+            if common == path.parent:
+                new_path = path.joinpath( self.path.relative_to(common))
+        if not new_path:
+            new_path = path.joinpath(self.name)
+        new_path.parent.mkdir(parents=True, exist_ok=True)
+        self._logger.info(f"move file{LINESEP}{self.path}{LINESEP}  ->{LINESEP}{new_path}")
+        if not dry_run:
+            # Danger !
+            self.file.rename(new_path)
 
 ####################################################################################################
 
@@ -664,13 +673,13 @@ class DuplicateSet(MarkMixin):
 
     ##############################################
 
-    def move_duplicates(self, path: Path | str, dry_run: bool = False) -> None:
+    def move_duplicates(self, path: Path | str, hierarchical: bool = False, dry_run: bool = False) -> None:
         self.check()
         path = Path(path).resolve()
         if not dry_run:
             path.mkdir(exist_ok=True)
         for _ in self._duplicates:
-            _.move_to(path, dry_run)
+            _.move_to(path, hierarchical, dry_run)
 
 
 type DuplicateSetIt = Iterator[DuplicateSet]
