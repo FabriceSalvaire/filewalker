@@ -66,6 +66,15 @@ class DuplicateCleaner:
 
     ##############################################
 
+    def __lt__(self, other: 'DuplicateCleaner') -> bool:
+        def cmp_element(dc: 'DuplicateCleaner') -> str:
+            return sorted([str(_) for _ in dc._dset])[0]
+        d1 = cmp_element(self)
+        d2 = cmp_element(other)
+        return d1 < d2
+
+    ##############################################
+
     def log(self, message: str) -> None:
         self._cleaner.log(message)
 
@@ -138,6 +147,13 @@ class DuplicateCleaner:
         self.rprint(Fore.GREEN + f"Found {len(self._dset)} identical files")
         if self._dset.is_same_parent:
             self.rprint(f"  {Fore.RED}same parent")
+
+    ##############################################
+
+    def print(self) -> None:
+        for i, _ in enumerate(sorted(self._dset.pendings)):
+            self.rprint(f"{_.parent}")
+            self.rprint(f"  {_.name}")
 
     ##############################################
 
@@ -289,7 +305,6 @@ class Cleaner:
         self,
         path: Path,
         use_rdfind: bool = False,
-        **kwargs,
     ) -> None:
         """Run rdfind and process duplicates"""
         self._reset(path)
@@ -301,6 +316,17 @@ class Cleaner:
         else:
             pool = DuplicateFinder.find_duplicate_set(path)
             it = pool
+        return it
+
+    ##############################################
+
+    def clean(
+        self,
+        path: Path,
+        use_rdfind: bool = False,
+        **kwargs,
+    ) -> None:
+        it = self.scan(path, use_rdfind=use_rdfind)
         removed_counter = 0
         removed_size = 0
         for dset in it:
@@ -313,6 +339,21 @@ class Cleaner:
         removed_size = int(round(removed_size / 1024**2))
         self.rprint(Fore.RED + f"Removed {removed_counter} files {removed_size} MB")
         self.close_log()
+
+    ##############################################
+
+    def list(
+        self,
+        path: Path,
+        use_rdfind: bool = False,
+        **kwargs,
+    ) -> None:
+        it = self.scan(path, use_rdfind=use_rdfind)
+        dset_list = [DuplicateCleaner(self, dset) for dset in it]
+        dset_list.sort()
+        for _ in dset_list:
+            print("-"*10)
+            _.print()
 
 ####################################################################################################
 
@@ -377,6 +418,12 @@ def main() -> None:
         action='store_true',
         help="",
     )
+    parser.add_argument(
+        '--list',
+        default=False,
+        action='store_true',
+        help="",
+    )
     args = parser.parse_args()
 
     if args.verbose:
@@ -404,10 +451,17 @@ def main() -> None:
     move = Path(args.move).resolve() if args.move else None
 
     cleaner = Cleaner(no_log=args.no_log)
-    cleaner.scan(
-        path,
-        only=only,
-        same_parent=args.same_parent,
-        use_rdfind=not args.no_rdfind,
-        move=move,
-    )
+    if args.list:
+        cleaner.list(
+            path,
+            only=only,
+            use_rdfind=not args.no_rdfind,
+        )
+    else:
+        cleaner.clean(
+            path,
+            only=only,
+            same_parent=args.same_parent,
+            use_rdfind=not args.no_rdfind,
+            move=move,
+        )

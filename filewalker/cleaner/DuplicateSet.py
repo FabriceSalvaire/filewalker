@@ -143,6 +143,17 @@ class Duplicate(MarkMixin):
 
     ##############################################
 
+    def __lt__(self, other: 'Duplicate') -> bool:
+        # return self.path_str < other.path_str
+        parent1 = str(self.parent)
+        parent2 = str(other.parent)
+        if parent1 == parent2:
+            return self.name < other.name
+        else:
+            return parent1 < parent2
+
+    ##############################################
+
     def compare_with(self, other: 'Duplicate', posix: bool = False) -> bool:
         return self.file.compare_with(other.file, posix)
 
